@@ -7,6 +7,8 @@
 #define BINTREE_ELEM_T  MathData
 #define BINTREE_BADELEM BAD_MATH_DATA
 //#define BINTREE_ELEM_SPEC "s"
+//#define BINTREE_BACK_LINK
+#define BINTREE_STORE_SIZE
 
 enum binTreeError_t{
     BASE_ERRORS(BTREE)
@@ -28,9 +30,15 @@ enum binTreePos_t{
 struct BinTreeNode{
     BinTreeNode* left;
     BinTreeNode* right;
+    #ifdef BINTREE_BACK_LINK
+    BinTreeNode* up;
+    #endif
     BINTREE_ELEM_T data;
     uint8_t tmp;
     int usedc;
+    #ifdef BINTREE_STORE_SIZE
+    size_t size;
+    #endif
 };
 
 /*
@@ -44,13 +52,17 @@ void binTreeNodeCtor(BinTreeNode* node, BINTREE_ELEM_T elem, int use = 1);
 
 BinTreeNode* binTreeNewNode(BINTREE_ELEM_T elem, int use = 1);
 
+binTreeError_t binTreeBuild(BinTreeNode* node);
+
 void binTreeNodeDtor(BinTreeNode* node);
 
 void binTreeDtor(BinTreeNode* node);
 
 binTreeError_t binTreeError_base(BinTreeNode* node, bool check_loop = true);
 
+#ifdef BINTREE_BACK_LINK
 BinTreeNode* binTreeGetRoot(BinTreeNode* node, binTreeError_t* err_ptr);
+#endif
 
 binTreeError_t binTreeError_dwn(BinTreeNode* node, bool local = false);
 
@@ -58,7 +70,9 @@ binTreeError_t binTreeError(BinTreeNode* node, bool local = false);
 
 void binTreeDump(BinTreeNode* refnode);
 
+#ifdef BINTREE_STORE_SIZE
 binTreeError_t binTreeUpdSize(BinTreeNode* node);
+#endif
 
 binTreeError_t binTreeAttach(BinTreeNode* subtree, BinTreeNode* att_node, binTreePos_t att_pos);
 

@@ -104,6 +104,7 @@ bool scanMathForm_(FILE* file, BinTreeNode** tree_place, char* buffer, bool full
                 error_log("no arg");
                 return false; //TODO: add unary check
             }
+            binTreeUpdSize(new_node);
         }
         else{
             if(old_node){
@@ -120,7 +121,7 @@ BinTreeNode* scanMathForm(FILE* file){
     BinTreeNode* tree =  nullptr;
     bool res = scanMathForm_(file, &tree, buffer);
     free(buffer);
-    if(!res){
+    if (!res){
         binTreeDump(tree);
         binTreeDtor(tree);
         return nullptr;
@@ -129,9 +130,9 @@ BinTreeNode* scanMathForm(FILE* file){
 }
 
 void printMathForm(FILE* file, BinTreeNode* form){
-    if(!form)
+    if (!form)
         return;
-    if(form->data.type == MATH_OP){
+    if (form->data.type == MATH_OP){
         fprintf(file, "(");
         printMathForm(file, form->left);
         fprintf(file, " ");

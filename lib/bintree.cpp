@@ -63,11 +63,16 @@ void binTreeNodeCtor(BinTreeNode* node, BINTREE_ELEM_T elem, int use){
     node->data  = elem;
     node->left  = nullptr;
     node->right = nullptr;
-    //node->up    = nullptr;
+    #ifdef BINTREE_BACK_LINK
+    node->up    = nullptr;
+    #endif
+
     #ifndef BINTREE_NO_PROTECT
     node->tmp = 0;
     #endif
-    //node->size = 1;
+    #ifdef BINTREE_STORE_SIZE
+    node->size = 1;
+    #endif
     node->usedc = use;
 }
 
@@ -83,9 +88,11 @@ void binTreeNodeDtor(BinTreeNode* node){
         node->data  = BINTREE_BADELEM;
         node->left  = (BinTreeNode*)DESTRUCT_PTR;
         node->right = (BinTreeNode*)DESTRUCT_PTR;
-        //node->up    = (BinTreeNode*)DESTRUCT_PTR;
+        #ifdef BINTREE_BACK_LINK
+        node->up    = (BinTreeNode*)DESTRUCT_PTR;
+        #endif
         node->usedc = -1;
-    #endif // BINTREE_NOPROTECT
+    #endif
     free(node);
 }
 
@@ -128,9 +135,10 @@ binTreeError_t binTreeError_base(BinTreeNode* node, bool check_loop){
     if (!isPtrWritable(node, sizeof(node)))
         return BTREE_BAD;
 
-    if (/*node->size == SIZE_MAX || */node->left == DESTRUCT_PTR || node->right == DESTRUCT_PTR/* || node->up == DESTRUCT_PTR*/){
+    if (node->left == DESTRUCT_PTR || node->right == DESTRUCT_PTR){
         return BTREE_DEAD;
     }
+
 
     if (node->tmp != 0 && check_loop){
         return BTREE_LOOP;
@@ -138,7 +146,7 @@ binTreeError_t binTreeError_base(BinTreeNode* node, bool check_loop){
     return BTREE_NOERROR;
 }
 
-/*
+#ifdef BINTREE_BACK_LINK
 BinTreeNode* binTreeGetRoot(BinTreeNode* node, binTreeError_t* err_ptr){
     binTreeError_t err = binTreeError_base(node);
     if(err != BTREE_NOERROR){
@@ -154,7 +162,8 @@ BinTreeNode* binTreeGetRoot(BinTreeNode* node, binTreeError_t* err_ptr){
     BinTreeNode* ret = binTreeGetRoot(node->up, err_ptr);
     clearNodeUsedFlag(node);
     return ret;
-}*/
+}
+#endif
 
 binTreeError_t binTreeBuild(BinTreeNode* node){
     binTreeError_t err = binTreeError_base(node);
@@ -164,7 +173,9 @@ binTreeError_t binTreeBuild(BinTreeNode* node){
     }
     setNodeUsedFlag(node);
 
-    //node->size = 1;
+    #ifdef BINTREE_STORE_SIZE
+    node->size = 1;
+    #endif
 
     int err_i = 0;
     if(node->left != nullptr){
@@ -175,8 +186,12 @@ binTreeError_t binTreeBuild(BinTreeNode* node){
             return passErrFromNode(err_s);
         }
         if(!(err_s & (BTREE_BAD | BTREE_DEAD))){
-            //node->size += node->left->size;
-            //node->left->up = node;
+            #ifdef BINTREE_STORE_SIZE
+            node->size += node->left->size;
+            #endif
+            #ifdef BINTREE_BACK_LINK
+            node->left->up = node;
+            #endif
         }
         err_i |= passErrFromNode(err_s);
     }
@@ -189,8 +204,12 @@ binTreeError_t binTreeBuild(BinTreeNode* node){
             return passErrFromNode(err_s);
         }
         if(!(err_s & (BTREE_BAD | BTREE_DEAD))){
-            //node->size += node->right->size;
-            //node->right->up = node;
+            #ifdef BINTREE_STORE_SIZE
+            node->size += node->right->size;
+            #endif
+            #ifdef BINTREE_BACK_LINK
+            node->right->up = node;
+            #endif
         }
     }
 
@@ -218,11 +237,11 @@ binTreeError_t binTreeError_dwn(BinTreeNode* node, bool local){
             err_s = binTreeError_dwn(node->left, false);
 
         if(!(err_s & (BTREE_BAD | BTREE_DEAD))){
-            /*
+            #ifdef BINTREE_BACK_LINK
             st_size += node->left->size;
             if(node->left->up != node)
                 err_i |= BTREE_BADEDGE;
-            */
+            #endif
         }
         err_i |= passErrFromNode(err_s);
     }
@@ -235,19 +254,19 @@ binTreeError_t binTreeError_dwn(BinTreeNode* node, bool local){
             err_s = binTreeError_dwn(node->right, false);
 
         if(!(err_s & (BTREE_BAD | BTREE_DEAD))){
-            /*
+            #ifdef BINTREE_BACK_LINK
             st_size += node->right->size;
             if(node->right->up != node)
                 err_i |= BTREE_BADEDGE;
-            */
+            #endif
         }
         err_i |= passErrFromNode(err_s);
     }
-    /*
+    #ifdef BINTREE_STORE_SIZE
     if(st_size != node->size){
         err_i |= BTREE_BADSIZE;
     }
-    */
+    #endif
 
     clearNodeUsedFlag(node);
     return (binTreeError_t)err_i;
@@ -257,19 +276,20 @@ binTreeError_t binTreeError(BinTreeNode* node, bool local){
     if(local){
         return (binTreeError_t)(binTreeError_dwn(node, true) | passErrFromNode(binTreeError_base(node)));
     }
-    /*
+    #ifdef BINTREE_BACK_LINK
     binTreeError_t err = BTREE_NOERROR;
     BinTreeNode* root = binTreeGetRoot(node, &err);
     if(err != BTREE_NOERROR){
         return err;
     }
     return binTreeError_dwn(root);
-    */
+    #else
     return binTreeError_dwn(node);
+    #endif
 }
 
 static binTreeError_t binTreeError_dbg(BinTreeNode* node){
-    return binTreeError_dwn(node);
+    return binTreeError(node);
 }
 
     #define COLOR_NORM_LINE     "\"#f0f0f0\""
@@ -286,10 +306,15 @@ static void dumpEdge(BinTreeNode* from, const char* from_port, BinTreeNode* to, 
     fprintf(file, "N%p:<%s>->N%p[", from, from_port, to);
     binTreeError_t err = binTreeError_base(to);
     if(err == BTREE_NOERROR){
-        if(/*to->up == from*/ 1)
+        #ifdef BINTREE_BACK_LINK
+        if(to->up == from*)
             fprintf(file, "color=" COLOR_VALID_LINE ", dir = both, arrowtail = crow");
         else
             fprintf(file, "color=" COLOR_INVALID_LINE);
+        #else
+            fprintf(file, "color=" COLOR_VALID_LINE);
+        #endif
+
     }
     else{
         if(err & BTREE_LOOP)
@@ -311,15 +336,16 @@ static void binTreeDump_dwn(BinTreeNode* node, FILE* file){
     }
 
     fprintf(file, "N%p[shape=plaintext, style=solid, color=%s,"
-            "label=<<TABLE  BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" BGCOLOR = %s>\n"
-            "<TR><TD COLSPAN=\"2\">D: " , node, node_line_color, COLOR_NORM_FILL);
-                                    dumpElem(file, &(node->data));
+                  "label=<<TABLE  BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" BGCOLOR = %s>\n"
+                  "<TR><TD COLSPAN=\"2\">D: " , node, node_line_color, COLOR_NORM_FILL);
+                  dumpElem(file, &(node->data));
+    fprintf(file, " </TD></TR>\n" );
+    #ifdef BINTREE_STORE_SIZE
+    fprintf(file, "<TR><TD COLSPAN=\"2\">S: %lu </TD></TR>\n", node->size);
+    #endif
+    fprintf(file, "<TR><TD PORT=\"L\">L</TD> <TD PORT=\"R\">R</TD></TR>\n"
+                  "</TABLE>> ]\n");
 
-    fprintf(file,                           " </TD></TR>\n"
-         /* "<TR><TD COLSPAN=\"2\">S: %lu </TD></TR>\n" */
-            "<TR><TD COLSPAN=\"2\">S: NA </TD></TR>\n"
-            "<TR><TD PORT=\"L\">L</TD> <TD PORT=\"R\">R</TD></TR>\n"
-            "</TABLE>> ]\n");
     setNodeUsedFlag(node);
     if(node->left){
         dumpEdge(node, "L", node->left, file);
@@ -384,7 +410,7 @@ void binTreeDump(BinTreeNode* refnode){
 
     system(cmd_str);
 }
-/*
+#ifdef BINTREE_STORE_SIZE
 binTreeError_t binTreeUpdSize(BinTreeNode* node){
     binTreeError_t err = binTreeError_base(node);
     if(err != BTREE_NOERROR){
@@ -412,14 +438,17 @@ binTreeError_t binTreeUpdSize(BinTreeNode* node){
         }
     }
 
+    #ifdef BINTREE_BACK_LINK
     if(node->up == nullptr){
         return BTREE_NOERROR;
     }
     setNodeUsedFlag(node);
     err = binTreeUpdSize(node->up);
     clearNodeUsedFlag(node);
+    #endif
     return BTREE_NOERROR;
-}*/
+}
+#endif
 
 binTreeError_t binTreeAttach(BinTreeNode* subtree, BinTreeNode* att_node, binTreePos_t att_pos){
     binTreeCheckRet(att_node , binTreeError_dbg(att_node));
@@ -439,10 +468,14 @@ binTreeError_t binTreeAttach(BinTreeNode* subtree, BinTreeNode* att_node, binTre
         return BTREE_BADOP;
     }
     *att_point  = subtree;
-    //subtree->up = att_node;
+    #ifdef BINTREE_BACK_LINK
+    subtree->up = att_node;
+    #endif
     subtree->usedc++;
 
-    //return binTreeUpdSize(att_node);
+    #ifdef BINTREE_STORE_SIZE
+    binTreeUpdSize(att_node);
+    #endif
     return binTreeError_dbg(att_node);
 }
 
