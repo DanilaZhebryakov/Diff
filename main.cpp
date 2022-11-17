@@ -3,9 +3,6 @@
 #include "formule_utils.h"
 #include "lib/bintree.h"
 
-BinTreeNode* scanMathForm(FILE* file);
-void printMathForm(FILE* file, BinTreeNode* form);
-
 int main()
 {
     BinTreeNode* tree = scanMathForm(stdin);

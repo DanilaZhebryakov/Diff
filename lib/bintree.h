@@ -2,9 +2,9 @@
 #define BINTREE_H_INCLUDED
 #include "lib/debug_utils.h"
 
-#include "formule_utils.h"
+#include "math_elem.h"
 
-#define BINTREE_ELEM_T  MathData
+#define BINTREE_ELEM_T  MathElem
 #define BINTREE_BADELEM BAD_MATH_DATA
 //#define BINTREE_ELEM_SPEC "s"
 //#define BINTREE_BACK_LINK

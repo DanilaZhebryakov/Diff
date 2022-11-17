@@ -40,7 +40,7 @@ static BINTREE_ELEM_T readElem(FILE* file){
     ungetc(c, file);
 
     char* buffer = (char*)calloc(MAX_FORM_WORD_LEN, sizeof(char));
-    MathData elem = scanMathElem(file, c, buffer);
+    MathElem elem = scanMathElem(file, c, buffer);
     free(buffer);
 
     return elem;
