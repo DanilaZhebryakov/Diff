@@ -5,6 +5,9 @@
 #include "lib/bintree.h"
 
 BinTreeNode* scanMathForm(FILE* file);
+
 void printMathForm(FILE* file, BinTreeNode* form);
+
+BinTreeNode* diffMathForm(BinTreeNode* form, const char* var);
 
 #endif // FORMULE_UTILS_H_INCLUDED

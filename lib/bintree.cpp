@@ -51,6 +51,9 @@ static void dumpElem(FILE* file, const BINTREE_ELEM_T* elem){
 }
 
 static void freeElem(BINTREE_ELEM_T elem){
+    if(elem.type == MATH_VAR){
+        free(elem.name);
+    }
     return;
 }
 
@@ -237,8 +240,10 @@ binTreeError_t binTreeError_dwn(BinTreeNode* node, bool local){
             err_s = binTreeError_dwn(node->left, false);
 
         if(!(err_s & (BTREE_BAD | BTREE_DEAD))){
-            #ifdef BINTREE_BACK_LINK
+            #ifdef BINTREE_STORE_SIZE
             st_size += node->left->size;
+            #endif
+            #ifdef BINTREE_BACK_LINK
             if(node->left->up != node)
                 err_i |= BTREE_BADEDGE;
             #endif
