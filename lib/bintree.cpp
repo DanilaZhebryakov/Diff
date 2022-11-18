@@ -232,14 +232,14 @@ binTreeError_t binTreeError_dwn(BinTreeNode* node, bool local){
     size_t st_size = 1;
 
     int err_i = 0;
-    if(node->left != nullptr){
+    if (node->left != nullptr){
         binTreeError_t err_s = BTREE_ERRUNK;
-        if(local)
+        if (local)
             err_s = binTreeError_base(node->left);
         else
             err_s = binTreeError_dwn(node->left, false);
 
-        if(!(err_s & (BTREE_BAD | BTREE_DEAD))){
+        if (!(err_s & (BTREE_BAD | BTREE_DEAD))){
             #ifdef BINTREE_STORE_SIZE
             st_size += node->left->size;
             #endif
@@ -251,16 +251,18 @@ binTreeError_t binTreeError_dwn(BinTreeNode* node, bool local){
         err_i |= passErrFromNode(err_s);
     }
 
-    if(node->right != nullptr){
+    if (node->right != nullptr){
         binTreeError_t err_s = BTREE_ERRUNK;
-        if(local)
+        if (local)
             err_s = binTreeError_base(node->right);
         else
             err_s = binTreeError_dwn(node->right, false);
 
-        if(!(err_s & (BTREE_BAD | BTREE_DEAD))){
-            #ifdef BINTREE_BACK_LINK
+        if (!(err_s & (BTREE_BAD | BTREE_DEAD))){
+            #ifdef BINTREE_STORE_SIZE
             st_size += node->right->size;
+            #endif
+            #ifdef BINTREE_BACK_LINK
             if(node->right->up != node)
                 err_i |= BTREE_BADEDGE;
             #endif
@@ -268,7 +270,7 @@ binTreeError_t binTreeError_dwn(BinTreeNode* node, bool local){
         err_i |= passErrFromNode(err_s);
     }
     #ifdef BINTREE_STORE_SIZE
-    if(st_size != node->size){
+    if (st_size != node->size){
         err_i |= BTREE_BADSIZE;
     }
     #endif
@@ -345,6 +347,7 @@ static void binTreeDump_dwn(BinTreeNode* node, FILE* file){
                   "<TR><TD COLSPAN=\"2\">D: " , node, node_line_color, COLOR_NORM_FILL);
                   dumpElem(file, &(node->data));
     fprintf(file, " </TD></TR>\n" );
+    fprintf(file, "<TR><TD COLSPAN=\"2\">UC: %d </TD></TR>\n", node->usedc);
     #ifdef BINTREE_STORE_SIZE
     fprintf(file, "<TR><TD COLSPAN=\"2\">S: %lu </TD></TR>\n", node->size);
     #endif

@@ -9,7 +9,17 @@ int main()
     printMathForm(stdout, tree);
     printf("\n");
     BinTreeNode* diff = diffMathForm(tree, "x");
-    printMathForm(stdout, diff);
 
+    printMathForm(stdout, diff);
+    printf("\n");
+
+    simplifyMathForm(&diff);
+
+    printMathForm(stdout, diff);
+    printf("\n");
+
+    binTreeDump(diff);
+    binTreeDtor(tree);
+    binTreeDtor(diff);
     return 0;
 }

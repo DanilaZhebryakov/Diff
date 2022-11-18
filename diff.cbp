@@ -59,6 +59,8 @@
 		<Unit filename="lib/time_utils.cpp" />
 		<Unit filename="lib/time_utils.h" />
 		<Unit filename="main.cpp" />
+		<Unit filename="math_elem.cpp" />
+		<Unit filename="math_elem.h" />
 		<Extensions>
 			<lib_finder disable_auto="1" />
 		</Extensions>
