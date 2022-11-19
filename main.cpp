@@ -5,21 +5,16 @@
 
 int main()
 {
-    BinTreeNode* tree = scanMathForm(stdin);
+    BinTreeNode* tree   = scanMathForm(stdin);
     printMathForm(stdout, tree);
+    BinTreeNode* taylor = taylorMathForm(tree, "x", 0, 7);
     printf("\n");
-    BinTreeNode* diff = diffMathForm(tree, "x");
-
-    printMathForm(stdout, diff);
-    printf("\n");
-
-    simplifyMathForm(&diff);
-
-    printMathForm(stdout, diff);
+    simplifyMathForm(&taylor);
+    printMathForm(stdout, taylor);
     printf("\n");
 
-    binTreeDump(diff);
+    binTreeDump(taylor);
     binTreeDtor(tree);
-    binTreeDtor(diff);
+    binTreeDtor(taylor);
     return 0;
 }

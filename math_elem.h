@@ -31,6 +31,7 @@ enum mathOpType_t{
     MATH_O_CH    = 16 | 0x80,
     MATH_O_TH    = 17 | 0x80,
     MATH_O_SQRT  = 18 | 0x80,
+    MATH_O_o     = 19 | 0x80,
 };
 
 const double math_eps = 0.0001;
@@ -42,6 +43,9 @@ struct MathElem{
 
 #define BAD_MATH_DATA {MATH_PAIN}
 const int MAX_FORM_WORD_LEN = 1000;
+
+
+const char* mathOpName(mathOpType_t op_type);
 
 mathOpType_t scanMathOp(const char* buffer);
 

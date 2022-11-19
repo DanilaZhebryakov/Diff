@@ -28,7 +28,8 @@ static const MathOp oplist[] = {
     {"sh"   , MATH_O_SH   },
     {"ch"   , MATH_O_CH   },
     {"th"   , MATH_O_TH   },
-    {"sqrt" , MATH_O_SQRT }
+    {"sqrt" , MATH_O_SQRT },
+    {"o"    , MATH_O_o    },
 };
 
 bool isMathOpUnary(mathOpType_t op){
@@ -40,8 +41,8 @@ static const int opcount = sizeof(oplist) / sizeof(MathOp);
 
 
 const char* mathOpName(mathOpType_t op_type){
-    for(int i = 0; i < opcount; i++){
-        if(oplist[i].op == op_type){
+    for (int i = 0; i < opcount; i++){
+        if (oplist[i].op == op_type){
             return oplist[i].name;
         }
     }
@@ -49,7 +50,7 @@ const char* mathOpName(mathOpType_t op_type){
 }
 
 double calcMathOp(mathOpType_t op_type, double a, double b){
-    switch(op_type){
+    switch (op_type){
     case MATH_O_ADD:
         return a + b;
     case MATH_O_SUB:
@@ -86,14 +87,17 @@ double calcMathOp(mathOpType_t op_type, double a, double b){
         return tanh(b);
     case MATH_O_SQRT:
         return sqrt(b);
+    case MATH_O_o:
+        return 0;
     default:
-        return 0/0;
+        error_log("BADOP\n");
+        return NAN;
     }
 }
 
 mathOpType_t scanMathOp(const char* buffer){
-    for(int i = 0; i < opcount; i++){
-        if(strcmp(oplist[i].name, buffer) == 0){
+    for (int i = 0; i < opcount; i++){
+        if (strcmp(oplist[i].name, buffer) == 0){
             return oplist[i].op;
         }
     }
@@ -104,13 +108,13 @@ MathElem scanMathElem (FILE* file, char c, char* buffer){
     MathElem ret = {};
     if (isdigit(c)){
         ret.type = MATH_CONST;
-        fscanf(file, "%lf", &(ret.val));
+        fscanf(file, "%g", &(ret.val));
         return ret;
     }
     fscanf(file, "%[^ ()0-9]", buffer);
 
     mathOpType_t op_type = scanMathOp(buffer);
-    if(op_type != MATH_O_NOTOP){
+    if (op_type != MATH_O_NOTOP){
         ret.type = MATH_OP;
         ret.op   = op_type;
         return ret;
@@ -122,7 +126,7 @@ MathElem scanMathElem (FILE* file, char c, char* buffer){
 }
 
 void printMathElem(FILE* file, MathElem elem){
-    switch(elem.type){
+    switch (elem.type){
     case MATH_PAIN:
         fprintf(file, "PAIN");
         break;
@@ -130,7 +134,7 @@ void printMathElem(FILE* file, MathElem elem){
         fprintf(file, mathOpName(elem.op));
         break;
     case MATH_CONST:
-        fprintf(file, "%lf", elem.val);
+        fprintf(file, "%g", elem.val);
         break;
     case MATH_VAR:
         fprintf(file, "%s", elem.name);

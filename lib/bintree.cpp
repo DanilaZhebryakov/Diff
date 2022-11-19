@@ -51,7 +51,7 @@ static void dumpElem(FILE* file, const BINTREE_ELEM_T* elem){
 }
 
 static void freeElem(BINTREE_ELEM_T elem){
-    if(elem.type == MATH_VAR){
+    if (elem.type == MATH_VAR){
         free(elem.name);
     }
     return;
@@ -100,15 +100,15 @@ void binTreeNodeDtor(BinTreeNode* node){
 }
 
 void binTreeDtor(BinTreeNode* node){
-    if(!node)
+    if (!node)
         return;
 
     node->usedc--;
-    if(node->usedc <= 0){
-        if(node->left){
+    if (node->usedc <= 0){
+        if (node->left){
             binTreeDtor(node->left);
         }
-        if(node->right){
+        if (node->right){
             binTreeDtor(node->right);
         }
         binTreeNodeDtor(node);
@@ -117,14 +117,14 @@ void binTreeDtor(BinTreeNode* node){
 
 static binTreeError_t passErrFromNode(binTreeError_t err){
     int err_i = err;
-    if(err & BTREE_NULL){
+    if (err & BTREE_NULL){
         err_i ^= BTREE_NULL;
     }
-    if(err & BTREE_BAD){
+    if (err & BTREE_BAD){
         err_i ^= BTREE_BAD;
         err_i |= BTREE_BADNODE;
     }
-    if(err & BTREE_DEAD){
+    if (err & BTREE_DEAD){
         err_i ^= BTREE_DEAD;
         err_i |= BTREE_DEADNODE;
     }
@@ -152,13 +152,13 @@ binTreeError_t binTreeError_base(BinTreeNode* node, bool check_loop){
 #ifdef BINTREE_BACK_LINK
 BinTreeNode* binTreeGetRoot(BinTreeNode* node, binTreeError_t* err_ptr){
     binTreeError_t err = binTreeError_base(node);
-    if(err != BTREE_NOERROR){
-        if(err_ptr)
+    if (err != BTREE_NOERROR){
+        if (err_ptr)
             *err_ptr = err;
         return nullptr;
     }
 
-    if(node->up == nullptr)
+    if (node->up == nullptr)
         return node;
 
     setNodeUsedFlag(node);
@@ -171,7 +171,7 @@ BinTreeNode* binTreeGetRoot(BinTreeNode* node, binTreeError_t* err_ptr){
 binTreeError_t binTreeBuild(BinTreeNode* node){
     binTreeError_t err = binTreeError_base(node);
 
-    if(err != BTREE_NOERROR){
+    if (err != BTREE_NOERROR){
         return err;
     }
     setNodeUsedFlag(node);
@@ -181,14 +181,14 @@ binTreeError_t binTreeBuild(BinTreeNode* node){
     #endif
 
     int err_i = 0;
-    if(node->left != nullptr){
+    if (node->left != nullptr){
         binTreeError_t err_s = BTREE_ERRUNK;
         err_s = binTreeBuild(node->left);
 
-        if(err_s != BTREE_NOERROR){
+        if (err_s != BTREE_NOERROR){
             return passErrFromNode(err_s);
         }
-        if(!(err_s & (BTREE_BAD | BTREE_DEAD))){
+        if (!(err_s & (BTREE_BAD | BTREE_DEAD))){
             #ifdef BINTREE_STORE_SIZE
             node->size += node->left->size;
             #endif
@@ -199,14 +199,14 @@ binTreeError_t binTreeBuild(BinTreeNode* node){
         err_i |= passErrFromNode(err_s);
     }
 
-    if(node->right != nullptr){
+    if (node->right != nullptr){
         binTreeError_t err_s = BTREE_ERRUNK;
         err_s = binTreeBuild(node->right);
 
-        if(err_s != BTREE_NOERROR){
+        if (err_s != BTREE_NOERROR){
             return passErrFromNode(err_s);
         }
-        if(!(err_s & (BTREE_BAD | BTREE_DEAD))){
+        if (!(err_s & (BTREE_BAD | BTREE_DEAD))){
             #ifdef BINTREE_STORE_SIZE
             node->size += node->right->size;
             #endif
@@ -280,13 +280,13 @@ binTreeError_t binTreeError_dwn(BinTreeNode* node, bool local){
 }
 
 binTreeError_t binTreeError(BinTreeNode* node, bool local){
-    if(local){
+    if (local){
         return (binTreeError_t)(binTreeError_dwn(node, true) | passErrFromNode(binTreeError_base(node)));
     }
     #ifdef BINTREE_BACK_LINK
     binTreeError_t err = BTREE_NOERROR;
     BinTreeNode* root = binTreeGetRoot(node, &err);
-    if(err != BTREE_NOERROR){
+    if (err != BTREE_NOERROR){
         return err;
     }
     return binTreeError_dwn(root);
@@ -312,7 +312,7 @@ static binTreeError_t binTreeError_dbg(BinTreeNode* node){
 static void dumpEdge(BinTreeNode* from, const char* from_port, BinTreeNode* to, FILE* file){
     fprintf(file, "N%p:<%s>->N%p[", from, from_port, to);
     binTreeError_t err = binTreeError_base(to);
-    if(err == BTREE_NOERROR){
+    if (err == BTREE_NOERROR){
         #ifdef BINTREE_BACK_LINK
         if(to->up == from*)
             fprintf(file, "color=" COLOR_VALID_LINE ", dir = both, arrowtail = crow");
@@ -324,7 +324,7 @@ static void dumpEdge(BinTreeNode* from, const char* from_port, BinTreeNode* to, 
 
     }
     else{
-        if(err & BTREE_LOOP)
+        if (err & BTREE_LOOP)
             fprintf(file, "color=" COLOR_LOOP_LINE ", constraint=false");
         else
             fprintf(file, "color=" COLOR_TOBADPTR_LINE ", style = dashed");
@@ -355,11 +355,11 @@ static void binTreeDump_dwn(BinTreeNode* node, FILE* file){
                   "</TABLE>> ]\n");
 
     setNodeUsedFlag(node);
-    if(node->left){
+    if (node->left){
         dumpEdge(node, "L", node->left, file);
         binTreeDump_dwn(node->left, file);
     }
-    if(node->right){
+    if (node->right){
         dumpEdge(node, "R", node->right, file);
         binTreeDump_dwn(node->right, file);
     }
@@ -421,24 +421,24 @@ void binTreeDump(BinTreeNode* refnode){
 #ifdef BINTREE_STORE_SIZE
 binTreeError_t binTreeUpdSize(BinTreeNode* node){
     binTreeError_t err = binTreeError_base(node);
-    if(err != BTREE_NOERROR){
+    if (err != BTREE_NOERROR){
         printf_log("E1\n");
         return err;
     }
 
     node->size = 1;
-    if(node->left){
+    if (node->left){
         err = binTreeError_base(node->left, false);
-        if(err == BTREE_NOERROR){
+        if (err == BTREE_NOERROR){
             node->size += node->left->size;
         }
         else{
             return err;
         }
     }
-    if(node->right){
+    if (node->right){
         err = binTreeError_base(node->right, false);
-        if(err == BTREE_NOERROR){
+        if (err == BTREE_NOERROR){
             node->size += node->right->size;
         }
         else{
@@ -447,7 +447,7 @@ binTreeError_t binTreeUpdSize(BinTreeNode* node){
     }
 
     #ifdef BINTREE_BACK_LINK
-    if(node->up == nullptr){
+    if (node->up == nullptr){
         return BTREE_NOERROR;
     }
     setNodeUsedFlag(node);
@@ -463,7 +463,7 @@ binTreeError_t binTreeAttach(BinTreeNode* subtree, BinTreeNode* att_node, binTre
     binTreeCheckRet(subtree  , binTreeError_dbg(subtree ));
 
     BinTreeNode** att_point = nullptr;
-    switch(att_pos){
+    switch (att_pos){
     case BTREE_POS_LEFT:
         att_point = &(att_node->left);
         break;
@@ -505,7 +505,7 @@ static void binTreePrintToFile_(BinTreeNode* node, FILE* file, int layer = 0){
     dumpElem(file, &(node->data));
     fprintf (file, "\"\n");
     place_tabs(layer)
-    if(node->left){
+    if (node->left){
         fprintf(file, "{\n");
         binTreePrintToFile_(node->left, file, layer+1);
     }
@@ -514,7 +514,7 @@ static void binTreePrintToFile_(BinTreeNode* node, FILE* file, int layer = 0){
     }
 
     place_tabs(layer)
-    if(node->right){
+    if (node->right){
         fprintf(file, "{\n");
         binTreePrintToFile_(node->right, file, layer+1);
     }
@@ -528,7 +528,7 @@ static void binTreePrintToFile_(BinTreeNode* node, FILE* file, int layer = 0){
 }
 
 void binTreePrintToFile(BinTreeNode* node, FILE* file){
-    if(binTreeError(node, false)){
+    if (binTreeError(node, false)){
         printf("bad tree");
         return;
     }
@@ -537,21 +537,21 @@ void binTreePrintToFile(BinTreeNode* node, FILE* file){
 }
 
 BinTreeNode* binTreeFind(BinTreeNode* node, BINTREE_ELEM_T elem){
-    if(binTreeError_base(node) != BTREE_NOERROR){
+    if (binTreeError_base(node) != BTREE_NOERROR){
         return nullptr;
     }
 
-    if(elemCompare(node->data, elem) == 0){
+    if (elemCompare(node->data, elem) == 0){
         return node;
     }
-    if(node->left){
+    if (node->left){
         BinTreeNode* res = binTreeFind(node->left, elem);
-        if(res != nullptr)
+        if (res != nullptr)
             return res;
     }
-    if(node->right){
+    if (node->right){
         BinTreeNode* res = binTreeFind(node->right, elem);
-        if(res != nullptr)
+        if (res != nullptr)
             return res;
     }
     return nullptr;
@@ -559,10 +559,10 @@ BinTreeNode* binTreeFind(BinTreeNode* node, BINTREE_ELEM_T elem){
 
 static BinTreeNode* binTreeReadFromFile_(FILE* file){
     char c = fgetc(file);
-    while(isspace(c) || iscntrl(c)){
+    while (isspace(c) || iscntrl(c)){
         c = fgetc(file);
     }
-    if(c == '}'){
+    if (c == '}'){
         return nullptr;
     }
 
@@ -570,13 +570,13 @@ static BinTreeNode* binTreeReadFromFile_(FILE* file){
     binTreeNodeCtor(node, BINTREE_BADELEM);
 
     int next_set = 0;
-    while(c != '}' && c != EOF){
-        if(c == '"'){
+    while (c != '}' && c != EOF){
+        if (c == '"'){
             node->data = readElem(file);
         }
-        if(c == '{'){
+        if (c == '{'){
             BinTreeNode* new_node = binTreeReadFromFile_(file);
-            switch(next_set){
+            switch (next_set){
             case 0:
                 node->left = new_node;
                 break;
@@ -589,7 +589,7 @@ static BinTreeNode* binTreeReadFromFile_(FILE* file){
 
         c = fgetc(file);
     }
-    if(c == EOF){
+    if (c == EOF){
         free(node);
         return nullptr;
     }
@@ -598,10 +598,10 @@ static BinTreeNode* binTreeReadFromFile_(FILE* file){
 
 BinTreeNode* binTreeReadFromFile(FILE* file){
     char c = fgetc(file);
-    while(c != EOF && c != '{'){
+    while (c != EOF && c != '{'){
         c = fgetc(file);
     }
-    if(c == '{'){
+    if (c == '{'){
         BinTreeNode* ret = binTreeReadFromFile_(file);
         binTreeBuild(ret);
         return ret;

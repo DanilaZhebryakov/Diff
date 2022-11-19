@@ -165,10 +165,10 @@ void setLogColor(consoleColor text_color, consoleColor background_color){
     setConsoleColor(stderr, text_color, background_color);
     #ifdef LOG_USE_HTML
         fprintf(_logfile, "<p style=\"");
-        if(!(text_color       & COLOR_NOCHANGE)){
+        if (!(text_color       & COLOR_NOCHANGE)){
             fprintf(_logfile, "color: #%06x "  , consoleColorAsHex(text_color      ));
         }
-        if(!(background_color & COLOR_NOCHANGE)){
+        if (!(background_color & COLOR_NOCHANGE)){
             fprintf(_logfile, "bgcolor: #%06x ", consoleColorAsHex(background_color));
         }
         fprintf(_logfile, "\">");
