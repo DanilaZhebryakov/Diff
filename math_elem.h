@@ -6,6 +6,7 @@ enum mathDataType_t{
     MATH_CONST = 1,
     MATH_VAR   = 2,
     MATH_OP    = 3,
+    MATH_FUNC  = 4,
     MATH_PAIN  = 0xFF
 };
 
@@ -44,6 +45,9 @@ struct MathElem{
 #define BAD_MATH_DATA {MATH_PAIN}
 const int MAX_FORM_WORD_LEN = 1000;
 
+bool isMathOpUnary(mathOpType_t op);
+
+int getMathOpPriority(mathOpType_t op_type);
 
 const char* mathOpName(mathOpType_t op_type);
 
@@ -55,6 +59,5 @@ MathElem scanMathElem (FILE* file, char c, char* buffer);
 
 void printMathElem(FILE* file, MathElem elem);
 
-bool isMathOpUnary(mathOpType_t op);
 
 #endif

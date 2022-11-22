@@ -8,28 +8,29 @@
 struct MathOp{
     const char* name;
     mathOpType_t op;
+    int priorirty;
 };
 
 static const MathOp oplist[] = {
-    {"+"    , MATH_O_ADD  },
-    {"-"    , MATH_O_SUB  },
-    {"*"    , MATH_O_MUL  },
-    {"/"    , MATH_O_DIV  },
-    {"^"    , MATH_O_POW  },
-    {"log"  , MATH_O_LOG  },
-    {"exp"  , MATH_O_EXP  },
-    {"ln"   , MATH_O_LN   },
-    {"sin"  , MATH_O_SIN  },
-    {"cos"  , MATH_O_COS  },
-    {"tg"   , MATH_O_TG   },
-    {"asin" , MATH_O_ASIN },
-    {"acos" , MATH_O_ACOS },
-    {"atg"  , MATH_O_ATG  },
-    {"sh"   , MATH_O_SH   },
-    {"ch"   , MATH_O_CH   },
-    {"th"   , MATH_O_TH   },
-    {"sqrt" , MATH_O_SQRT },
-    {"o"    , MATH_O_o    },
+    {"+"    , MATH_O_ADD  , 0},
+    {"-"    , MATH_O_SUB  , 0},
+    {"*"    , MATH_O_MUL  , 1},
+    {"/"    , MATH_O_DIV  , 1},
+    {"^"    , MATH_O_POW  , 2},
+    {"log"  , MATH_O_LOG  , 100},
+    {"exp"  , MATH_O_EXP  , 100},
+    {"ln"   , MATH_O_LN   , 100},
+    {"sin"  , MATH_O_SIN  , 100},
+    {"cos"  , MATH_O_COS  , 100},
+    {"tg"   , MATH_O_TG   , 100},
+    {"asin" , MATH_O_ASIN , 100},
+    {"acos" , MATH_O_ACOS , 100},
+    {"atg"  , MATH_O_ATG  , 100},
+    {"sh"   , MATH_O_SH   , 100},
+    {"ch"   , MATH_O_CH   , 100},
+    {"th"   , MATH_O_TH   , 100},
+    {"sqrt" , MATH_O_SQRT , 100},
+    {"o"    , MATH_O_o    , 100},
 };
 
 bool isMathOpUnary(mathOpType_t op){
@@ -38,7 +39,14 @@ bool isMathOpUnary(mathOpType_t op){
 
 static const int opcount = sizeof(oplist) / sizeof(MathOp);
 
-
+int getMathOpPriority(mathOpType_t op_type){
+    for (int i = 0; i < opcount; i++){
+        if (oplist[i].op == op_type){
+            return oplist[i].priorirty;
+        }
+    }
+    return -1;
+}
 
 const char* mathOpName(mathOpType_t op_type){
     for (int i = 0; i < opcount; i++){
@@ -46,7 +54,7 @@ const char* mathOpName(mathOpType_t op_type){
             return oplist[i].name;
         }
     }
-    return "";
+    return "BADOP";
 }
 
 double calcMathOp(mathOpType_t op_type, double a, double b){
@@ -108,10 +116,16 @@ MathElem scanMathElem (FILE* file, char c, char* buffer){
     MathElem ret = {};
     if (isdigit(c)){
         ret.type = MATH_CONST;
-        fscanf(file, "%g", &(ret.val));
+        char c1 = fgetc(file);
+        ungetc(c1, file);
+        fscanf(file, "%lg", &(ret.val));
         return ret;
     }
     fscanf(file, "%[^ ()0-9]", buffer);
+    if(*buffer == '\0'){
+        ret.type = MATH_PAIN;
+        return ret;
+    }
 
     mathOpType_t op_type = scanMathOp(buffer);
     if (op_type != MATH_O_NOTOP){
@@ -134,7 +148,7 @@ void printMathElem(FILE* file, MathElem elem){
         fprintf(file, mathOpName(elem.op));
         break;
     case MATH_CONST:
-        fprintf(file, "%g", elem.val);
+        fprintf(file, "%lg", elem.val);
         break;
     case MATH_VAR:
         fprintf(file, "%s", elem.name);

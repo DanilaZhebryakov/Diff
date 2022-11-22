@@ -1,0 +1,11 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[OT1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{comment}
+\title{Работа 1.4.8}
+\begin{document}
+ $x^2 + 1$
+\end{document}

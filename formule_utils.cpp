@@ -5,6 +5,8 @@
 #include "math_elem.h"
 #include "lib/bintree.h"
 
+const int MAX_MATH_OP_PRIORITY = 5;
+
 static BinTreeNode* newBadNode(){
     MathElem elem = {};
     elem.type = MATH_PAIN;
@@ -42,50 +44,103 @@ static bool mathElemEquals(BinTreeNode* node, double cmp_val){
                     );
 }
 
-static bool scanMathForm_(FILE* file, BinTreeNode** tree_place, char* buffer, bool full_scan = false){
-    assert_log(tree_place != nullptr);
-    do{
-        char c = ' ';
-        while (isspace(c)){
-            c = fgetc(file);
-        }
-        if (c == EOF || c == ')'){
-            return true;
-        }
-        if (c == '('){
-            scanMathForm_(file, tree_place, buffer, true);
-            continue;
-        }
 
+static void refillElemBuffer_(FILE* file, char* buffer, MathElem* elem_buffer){
+    char c = ' ';
+    do {
+            c = fgetc(file);
+    } while (isspace(c));
+
+    ungetc(c, file);
+    if (c == EOF || c == ')'){
+        elem_buffer->type = MATH_PAIN;
+        return;
+    }
+
+    *elem_buffer = scanMathElem(file, c, buffer);
+}
+
+static bool scanMathExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, int priority);
+
+static bool scanMathPExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, bool continue_scan = true){
+    if(elem_buffer->type != MATH_PAIN){
+        *tree_place = binTreeNewNode(*elem_buffer);
+        if(continue_scan)
+            refillElemBuffer_(file, buffer, elem_buffer);
+        return true;
+    }
+
+    char c = ' ';
+    do {
+        c = fgetc(file);
+    } while (isspace(c));
+    if (c == EOF || c == ')'){
         ungetc(c, file);
-        MathElem data = scanMathElem(file, c, buffer);
+        return true;
+    }
+
+    if(c == '('){
+        refillElemBuffer_(file, buffer, elem_buffer);
+        if(!scanMathExpr_(file, tree_place, buffer, elem_buffer, 0))
+            return false;
+        if(continue_scan)
+            refillElemBuffer_(file, buffer, elem_buffer);
+        return true;
+    }
+    ungetc(c, file);
+    return false;
+
+}
+
+static bool scanMathExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, int priority){
+    assert_log(tree_place != nullptr);
+
+    if(priority > MAX_MATH_OP_PRIORITY){
+        if(!scanMathPExpr_(file, tree_place, buffer, elem_buffer))
+            return false;
+        while(elem_buffer->type != MATH_OP && ((*tree_place)->data.type == MATH_VAR || (*tree_place)->data.type == MATH_OP)){
+            (*tree_place)->data.type = MATH_FUNC;
+            (*tree_place)->right = binTreeNewNode(*elem_buffer);
+            *tree_place = (*tree_place)->right;
+            if(!scanMathPExpr_(file, tree_place, buffer, elem_buffer))
+                return false;
+        }
+        return true;
+    }
+
+    while(1){
+
+        if(!scanMathExpr_(file, tree_place, buffer, elem_buffer, priority+1))
+            return false;
+        if(elem_buffer->type == MATH_PAIN)
+            return true;
+        if(elem_buffer->type != MATH_OP)
+            return false;
+        if(getMathOpPriority(elem_buffer->op) < priority)
+            return true;
+
         BinTreeNode* old_node = *tree_place;
-        BinTreeNode* new_node = binTreeNewNode(data);
+        BinTreeNode* new_node = binTreeNewNode(*elem_buffer);
         *tree_place = new_node;
         new_node->left = old_node;
-        if (data.type == MATH_OP){
-            scanMathForm_(file, &(new_node->right), buffer);
-            if (!(old_node || isMathOpUnary(data.op))){
-                error_log("no arg");
-                return false;
-            }
-            binTreeUpdSize(new_node);
-        }
-        else{
-            if (old_node){
-                error_log("excess arg");
-                return false;
-            }
-        }
-    } while(full_scan);
+        tree_place = &(new_node->right);
+        refillElemBuffer_(file, buffer, elem_buffer);
+
+        binTreeUpdSize(new_node);
+    }
     return true;
 }
 
 BinTreeNode* scanMathForm(FILE* file){
     char* buffer = (char*)calloc(MAX_FORM_WORD_LEN, sizeof(char));
     BinTreeNode* tree =  nullptr;
-    bool res = scanMathForm_(file, &tree, buffer);
+    MathElem elem_buffer = {};
+    elem_buffer.type == MATH_PAIN;
+
+    refillElemBuffer_(file, buffer, &elem_buffer);
+    bool res = scanMathPExpr_(file, &tree, buffer, &elem_buffer);
     free(buffer);
+
     if (!res){
         binTreeDump(tree);
         binTreeDtor(tree);
