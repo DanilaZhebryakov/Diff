@@ -52,7 +52,7 @@ static void refillElemBuffer_(FILE* file, char* buffer, MathElem* elem_buffer){
     } while (isspace(c));
 
     ungetc(c, file);
-    if (c == EOF || c == ')'){
+    if (c == EOF || c == ')' || c == '('){
         elem_buffer->type = MATH_PAIN;
         return;
     }
@@ -62,10 +62,36 @@ static void refillElemBuffer_(FILE* file, char* buffer, MathElem* elem_buffer){
 
 static bool scanMathExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, int priority);
 
-static bool scanMathPExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, bool continue_scan = true){
+static bool scanMathPExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, bool short_scan = false){
     if(elem_buffer->type != MATH_PAIN){
+        if(elem_buffer->type == MATH_OP){
+            if(short_scan){
+                if(!isMathOpUnary(elem_buffer->op)){
+                    error_log("Binary operator %s used as unary\n", mathOpName(elem_buffer->op));
+                    return false;
+                }
+                *tree_place = binTreeNewNode(*elem_buffer);
+                tree_place = &(*tree_place)->right;
+                refillElemBuffer_(file, buffer, elem_buffer);
+                if(!scanMathPExpr_(file, tree_place, buffer, elem_buffer, true))
+                    return false;
+                return true;
+            }
+            else{
+                return scanMathExpr_(file, tree_place, buffer, elem_buffer, getMathOpPriority(elem_buffer->op));
+            }
+        }
         *tree_place = binTreeNewNode(*elem_buffer);
-        if(continue_scan)
+
+        while((*tree_place)->data.type == MATH_VAR && !short_scan){
+            (*tree_place)->data.type = MATH_FUNC;
+            (*tree_place)->right = binTreeNewNode(*elem_buffer);
+            *tree_place = (*tree_place)->right;
+            if(!scanMathPExpr_(file, tree_place, buffer, elem_buffer))
+                return false;
+        }
+
+        if(!short_scan)
             refillElemBuffer_(file, buffer, elem_buffer);
         return true;
     }
@@ -74,20 +100,17 @@ static bool scanMathPExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, M
     do {
         c = fgetc(file);
     } while (isspace(c));
-    if (c == EOF || c == ')'){
-        ungetc(c, file);
-        return true;
-    }
 
     if(c == '('){
         refillElemBuffer_(file, buffer, elem_buffer);
         if(!scanMathExpr_(file, tree_place, buffer, elem_buffer, 0))
             return false;
-        if(continue_scan)
+        if(!short_scan)
             refillElemBuffer_(file, buffer, elem_buffer);
         return true;
     }
     ungetc(c, file);
+    error_log("Unexpected character %c found\n", c);
     return false;
 
 }
@@ -96,28 +119,35 @@ static bool scanMathExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, Ma
     assert_log(tree_place != nullptr);
 
     if(priority > MAX_MATH_OP_PRIORITY){
-        if(!scanMathPExpr_(file, tree_place, buffer, elem_buffer))
-            return false;
-        while(elem_buffer->type != MATH_OP && ((*tree_place)->data.type == MATH_VAR || (*tree_place)->data.type == MATH_OP)){
-            (*tree_place)->data.type = MATH_FUNC;
-            (*tree_place)->right = binTreeNewNode(*elem_buffer);
-            *tree_place = (*tree_place)->right;
-            if(!scanMathPExpr_(file, tree_place, buffer, elem_buffer))
-                return false;
-        }
-        return true;
+        return scanMathPExpr_(file, tree_place, buffer, elem_buffer);
     }
 
     while(1){
+        if(elem_buffer->type == MATH_OP && getMathOpPriority(elem_buffer->op) == priority){
+            if(!isMathOpUnary(elem_buffer->op)){
+                error_log("Binary operator %s used as unary\n", mathOpName(elem_buffer->op));
+                return false;
+            }
+        }
+        else{
+            if(!scanMathExpr_(file, tree_place, buffer, elem_buffer, priority+1))
+                return false;
+            if(elem_buffer->type == MATH_OP && isMathOpUnary(elem_buffer->op)){
+                error_log("Unary operator %s used as binary\n", mathOpName(elem_buffer->op));
+                return false;
+            }
+        }
 
-        if(!scanMathExpr_(file, tree_place, buffer, elem_buffer, priority+1))
-            return false;
         if(elem_buffer->type == MATH_PAIN)
             return true;
-        if(elem_buffer->type != MATH_OP)
+        if(elem_buffer->type != MATH_OP){
+            error_log("Argument required between two ops\n");
             return false;
+        }
         if(getMathOpPriority(elem_buffer->op) < priority)
             return true;
+
+
 
         BinTreeNode* old_node = *tree_place;
         BinTreeNode* new_node = binTreeNewNode(*elem_buffer);
@@ -125,8 +155,6 @@ static bool scanMathExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, Ma
         new_node->left = old_node;
         tree_place = &(new_node->right);
         refillElemBuffer_(file, buffer, elem_buffer);
-
-        binTreeUpdSize(new_node);
     }
     return true;
 }
@@ -138,7 +166,7 @@ BinTreeNode* scanMathForm(FILE* file){
     elem_buffer.type == MATH_PAIN;
 
     refillElemBuffer_(file, buffer, &elem_buffer);
-    bool res = scanMathPExpr_(file, &tree, buffer, &elem_buffer);
+    bool res = scanMathPExpr_(file, &tree, buffer, &elem_buffer, true);
     free(buffer);
 
     if (!res){
