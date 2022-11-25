@@ -63,35 +63,42 @@ static void refillElemBuffer_(FILE* file, char* buffer, MathElem* elem_buffer){
 static bool scanMathExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, int priority);
 
 static bool scanMathPExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, bool short_scan = false){
-    if(elem_buffer->type != MATH_PAIN){
-        if(elem_buffer->type == MATH_OP){
-            if(short_scan){
-                if(!isMathOpUnary(elem_buffer->op)){
-                    error_log("Binary operator %s used as unary\n", mathOpName(elem_buffer->op));
+    if (elem_buffer->type != MATH_PAIN){
+        if (elem_buffer->type == MATH_OP){
+            if (!canMathOpBeUnary(elem_buffer->op)){
+                error_log("Binary operator %s used as unary\n", mathOpName(elem_buffer->op));
+                return false;
+            }
+            elem_buffer->op = (mathOpType_t)(elem_buffer->op | MATH_O_UNARY);
+            *tree_place = binTreeNewNode(*elem_buffer);
+            BinTreeNode** tree_place_cur = &(*tree_place)->right;
+            int op_priority = getMathOpPriority(elem_buffer->op);
+            refillElemBuffer_(file, buffer, elem_buffer);
+
+
+            if (short_scan){
+                if (!scanMathPExpr_(file, tree_place_cur, buffer, elem_buffer, true))
                     return false;
-                }
-                *tree_place = binTreeNewNode(*elem_buffer);
-                tree_place = &(*tree_place)->right;
-                refillElemBuffer_(file, buffer, elem_buffer);
-                if(!scanMathPExpr_(file, tree_place, buffer, elem_buffer, true))
-                    return false;
-                return true;
             }
             else{
-                return scanMathExpr_(file, tree_place, buffer, elem_buffer, getMathOpPriority(elem_buffer->op));
+                if (!scanMathExpr_(file, tree_place_cur, buffer, elem_buffer, op_priority))
+                   return false;
             }
+            binTreeUpdSize(*tree_place);
+            return true;
+
         }
         *tree_place = binTreeNewNode(*elem_buffer);
 
-        while((*tree_place)->data.type == MATH_VAR && !short_scan){
+        while ((*tree_place)->data.type == MATH_VAR && (elem_buffer->type == MATH_PAIN) && !short_scan){
             (*tree_place)->data.type = MATH_FUNC;
             (*tree_place)->right = binTreeNewNode(*elem_buffer);
             *tree_place = (*tree_place)->right;
-            if(!scanMathPExpr_(file, tree_place, buffer, elem_buffer))
+            if (!scanMathPExpr_(file, tree_place, buffer, elem_buffer))
                 return false;
         }
 
-        if(!short_scan)
+        if (!short_scan)
             refillElemBuffer_(file, buffer, elem_buffer);
         return true;
     }
@@ -101,11 +108,11 @@ static bool scanMathPExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, M
         c = fgetc(file);
     } while (isspace(c));
 
-    if(c == '('){
+    if (c == '('){
         refillElemBuffer_(file, buffer, elem_buffer);
-        if(!scanMathExpr_(file, tree_place, buffer, elem_buffer, 0))
+        if (!scanMathExpr_(file, tree_place, buffer, elem_buffer, 0))
             return false;
-        if(!short_scan)
+        if (!short_scan)
             refillElemBuffer_(file, buffer, elem_buffer);
         return true;
     }
@@ -118,33 +125,26 @@ static bool scanMathPExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, M
 static bool scanMathExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, int priority){
     assert_log(tree_place != nullptr);
 
-    if(priority > MAX_MATH_OP_PRIORITY){
+    if (priority > MAX_MATH_OP_PRIORITY){
         return scanMathPExpr_(file, tree_place, buffer, elem_buffer);
     }
-
-    while(1){
-        if(elem_buffer->type == MATH_OP && getMathOpPriority(elem_buffer->op) == priority){
-            if(!isMathOpUnary(elem_buffer->op)){
-                error_log("Binary operator %s used as unary\n", mathOpName(elem_buffer->op));
-                return false;
-            }
-        }
-        else{
-            if(!scanMathExpr_(file, tree_place, buffer, elem_buffer, priority+1))
-                return false;
-            if(elem_buffer->type == MATH_OP && isMathOpUnary(elem_buffer->op)){
-                error_log("Unary operator %s used as binary\n", mathOpName(elem_buffer->op));
-                return false;
-            }
-        }
-
-        if(elem_buffer->type == MATH_PAIN)
-            return true;
-        if(elem_buffer->type != MATH_OP){
-            error_log("Argument required between two ops\n");
+    BinTreeNode** tree_place_cur = tree_place;
+    while (1){
+        if (!scanMathExpr_(file, tree_place_cur, buffer, elem_buffer, priority+1))
+            return false;
+        if (elem_buffer->type == MATH_OP && isMathOpUnary(elem_buffer->op)){
+            error_log("Unary operator %s used as binary\n", mathOpName(elem_buffer->op));
             return false;
         }
-        if(getMathOpPriority(elem_buffer->op) < priority)
+        binTreeUpdSize(*tree_place);
+
+        if (elem_buffer->type == MATH_PAIN)
+            return true;
+        if (elem_buffer->type != MATH_OP){
+            error_log("Op required between two arguments\n");
+            return false;
+        }
+        if (getMathOpPriority(elem_buffer->op) < priority)
             return true;
 
 
@@ -153,10 +153,10 @@ static bool scanMathExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, Ma
         BinTreeNode* new_node = binTreeNewNode(*elem_buffer);
         *tree_place = new_node;
         new_node->left = old_node;
-        tree_place = &(new_node->right);
+        tree_place_cur = &(new_node->right);
         refillElemBuffer_(file, buffer, elem_buffer);
     }
-    return true;
+    return false;
 }
 
 BinTreeNode* scanMathForm(FILE* file){
@@ -496,12 +496,12 @@ BinTreeNode* diffMathForm(BinTreeNode* form, const char* var) {
 }
 
 BinTreeNode* diffMathForm_n(BinTreeNode* form, const char* var, int n) {
-    if(n == 0){
+    if (n == 0){
         form->usedc++;
         return form;
     }
     form = diffMathForm(form, var);
-    for(int i = 1; i < n; i++){
+    for (int i = 1; i < n; i++){
         BinTreeNode* t = diffMathForm(form, var);
         binTreeNodeDtor(form);
         form = t;
@@ -617,7 +617,7 @@ static BinTreeNode* simplifyMathForm_(BinTreeNode* form){
 
 static unsigned long long factorial(int n){
     unsigned long long r = 1;
-    for(int i = 1; i <= n; i++){
+    for (int i = 1; i <= n; i++){
         r = r * i;
     }
     return r;
@@ -631,7 +631,7 @@ BinTreeNode* taylorMathForm(BinTreeNode* form, const char* var, double point, in
     BinTreeNode* x_sub_point = newOpNode(MATH_O_SUB, var_node, newConstNode(point));
     BinTreeNode* res = replaceMathFormVar(form, var, point);
 
-    for(int i = 1; i <= o_st; i++){
+    for (int i = 1; i <= o_st; i++){
         BinTreeNode* s_mem = newOpNode(MATH_O_MUL,
                                     newOpNode(MATH_O_DIV,
                                         newOpNode(MATH_O_POW,

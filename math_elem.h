@@ -16,6 +16,7 @@ enum mathOpType_t{
     MATH_O_NOTOP = 0,
     MATH_O_ADD   = 1,
     MATH_O_SUB   = 2,
+    MATH_O_UMIN  = 2  | 0x80,
     MATH_O_MUL   = 3,
     MATH_O_DIV   = 4,
     MATH_O_POW   = 5,
@@ -46,6 +47,8 @@ struct MathElem{
 const int MAX_FORM_WORD_LEN = 1000;
 
 bool isMathOpUnary(mathOpType_t op);
+
+bool canMathOpBeUnary(mathOpType_t op);
 
 int getMathOpPriority(mathOpType_t op_type);
 

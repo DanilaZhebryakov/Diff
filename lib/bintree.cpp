@@ -422,7 +422,6 @@ void binTreeDump(BinTreeNode* refnode){
 binTreeError_t binTreeUpdSize(BinTreeNode* node){
     binTreeError_t err = binTreeError_base(node);
     if (err != BTREE_NOERROR){
-        printf_log("E1\n");
         return err;
     }
 

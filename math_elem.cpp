@@ -14,6 +14,7 @@ struct MathOp{
 static const MathOp oplist[] = {
     {"+"    , MATH_O_ADD  , 0},
     {"-"    , MATH_O_SUB  , 0},
+    {"-"    , MATH_O_UMIN  , 0},
     {"*"    , MATH_O_MUL  , 1},
     {"/"    , MATH_O_DIV  , 1},
     {"^"    , MATH_O_POW  , 3},
@@ -38,6 +39,15 @@ bool isMathOpUnary(mathOpType_t op){
 }
 
 static const int opcount = sizeof(oplist) / sizeof(MathOp);
+
+bool canMathOpBeUnary(mathOpType_t op){
+    for (int i = 0; i < opcount; i++){
+        if (oplist[i].op == (op | MATH_O_UNARY)){
+            return true;
+        }
+    }
+    return false;
+}
 
 int getMathOpPriority(mathOpType_t op_type){
     for (int i = 0; i < opcount; i++){
