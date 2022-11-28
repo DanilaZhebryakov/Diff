@@ -5,8 +5,6 @@
 #include "math_elem.h"
 #include "lib/bintree.h"
 
-const int MAX_MATH_OP_PRIORITY = 5;
-
 static BinTreeNode* newBadNode(){
     MathElem elem = {};
     elem.type = MATH_PAIN;
@@ -44,162 +42,41 @@ static bool mathElemEquals(BinTreeNode* node, double cmp_val){
                     );
 }
 
-
-static void refillElemBuffer_(FILE* file, char* buffer, MathElem* elem_buffer){
-    char c = ' ';
-    do {
-            c = fgetc(file);
-    } while (isspace(c));
-
-    ungetc(c, file);
-    if (c == EOF || c == ')' || c == '('){
-        elem_buffer->type = MATH_PAIN;
-        return;
-    }
-
-    *elem_buffer = scanMathElem(file, c, buffer);
-}
-
-static bool scanMathExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, int priority);
-
-static bool scanMathPExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, bool short_scan = false){
-    if (elem_buffer->type != MATH_PAIN){
-        if (elem_buffer->type == MATH_OP){
-            if (!canMathOpBeUnary(elem_buffer->op)){
-                error_log("Binary operator %s used as unary\n", mathOpName(elem_buffer->op));
-                return false;
-            }
-            elem_buffer->op = (mathOpType_t)(elem_buffer->op | MATH_O_UNARY);
-            *tree_place = binTreeNewNode(*elem_buffer);
-            BinTreeNode** tree_place_cur = &(*tree_place)->right;
-            int op_priority = getMathOpPriority(elem_buffer->op);
-            refillElemBuffer_(file, buffer, elem_buffer);
-
-
-            if (short_scan){
-                if (!scanMathPExpr_(file, tree_place_cur, buffer, elem_buffer, true))
-                    return false;
-            }
-            else{
-                if (!scanMathExpr_(file, tree_place_cur, buffer, elem_buffer, op_priority))
-                   return false;
-            }
-            binTreeUpdSize(*tree_place);
-            return true;
-
-        }
-        *tree_place = binTreeNewNode(*elem_buffer);
-
-        while ((*tree_place)->data.type == MATH_VAR && (elem_buffer->type == MATH_PAIN) && !short_scan){
-            (*tree_place)->data.type = MATH_FUNC;
-            (*tree_place)->right = binTreeNewNode(*elem_buffer);
-            *tree_place = (*tree_place)->right;
-            if (!scanMathPExpr_(file, tree_place, buffer, elem_buffer))
-                return false;
-        }
-
-        if (!short_scan)
-            refillElemBuffer_(file, buffer, elem_buffer);
-        return true;
-    }
-
-    char c = ' ';
-    do {
-        c = fgetc(file);
-    } while (isspace(c));
-
-    if (c == '('){
-        refillElemBuffer_(file, buffer, elem_buffer);
-        if (!scanMathExpr_(file, tree_place, buffer, elem_buffer, 0))
-            return false;
-        if (!short_scan)
-            refillElemBuffer_(file, buffer, elem_buffer);
-        return true;
-    }
-    ungetc(c, file);
-    error_log("Unexpected character %c found\n", c);
-    return false;
-
-}
-
-static bool scanMathExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, int priority){
-    assert_log(tree_place != nullptr);
-
-    if (priority > MAX_MATH_OP_PRIORITY){
-        return scanMathPExpr_(file, tree_place, buffer, elem_buffer);
-    }
-    BinTreeNode** tree_place_cur = tree_place;
-    while (1){
-        if (!scanMathExpr_(file, tree_place_cur, buffer, elem_buffer, priority+1))
-            return false;
-        if (elem_buffer->type == MATH_OP && isMathOpUnary(elem_buffer->op)){
-            error_log("Unary operator %s used as binary\n", mathOpName(elem_buffer->op));
-            return false;
-        }
-        binTreeUpdSize(*tree_place);
-
-        if (elem_buffer->type == MATH_PAIN)
-            return true;
-        if (elem_buffer->type != MATH_OP){
-            error_log("Op required between two arguments\n");
-            return false;
-        }
-        if (getMathOpPriority(elem_buffer->op) < priority)
-            return true;
-
-
-
-        BinTreeNode* old_node = *tree_place;
-        BinTreeNode* new_node = binTreeNewNode(*elem_buffer);
-        *tree_place = new_node;
-        new_node->left = old_node;
-        tree_place_cur = &(new_node->right);
-        refillElemBuffer_(file, buffer, elem_buffer);
-    }
-    return false;
-}
-
-BinTreeNode* scanMathForm(FILE* file){
-    char* buffer = (char*)calloc(MAX_FORM_WORD_LEN, sizeof(char));
-    BinTreeNode* tree =  nullptr;
-    MathElem elem_buffer = {};
-    elem_buffer.type == MATH_PAIN;
-
-    refillElemBuffer_(file, buffer, &elem_buffer);
-    bool res = scanMathPExpr_(file, &tree, buffer, &elem_buffer, true);
-    free(buffer);
-
-    if (!res){
-        binTreeDump(tree);
-        binTreeDtor(tree);
-        return nullptr;
-    }
-    return tree;
-}
-
-void printMathForm(FILE* file, BinTreeNode* form){
+void printMathForm(FILE* file, BinTreeNode* form, int priority){
     if (!form)
         return;
     if (form->data.type == MATH_OP){
+        int op_priority = getMathOpPriority(form->data.op);
+        if(op_priority < priority){
+            fprintf(file, "(");
+        }
         if (isMathOpUnary(form->data.op)){
             printMathElem(file, form->data);
-            fprintf(file, "(");
-            printMathForm(file, form->right);
-            fprintf(file, ")");
+            fprintf(file, " ");
+            printMathForm(file, form->right, op_priority);
         }
         else{
-            fprintf(file, "(");
-            printMathForm(file, form->left);
+            printMathForm(file, form->left, op_priority);
             fprintf(file, " ");
             printMathElem(file, form->data);
             fprintf(file, " ");
-            printMathForm(file, form->right);
+            printMathForm(file, form->right, op_priority + 1);
+        }
+        if(op_priority < priority){
             fprintf(file, ")");
         }
+        return;
     }
-    else{
+
+    if (form->data.type == MATH_FUNC){
         printMathElem(file, form->data);
+        fprintf(file, "(");
+        printMathForm(file, form->right, 0);
+        fprintf(file, ")");
+        return;
     }
+
+    printMathElem(file, form->data);
 
 }
 
@@ -258,6 +135,51 @@ void printMathFormTex(FILE* file, BinTreeNode* form){
         printMathElem(file, form->data);
     }
 }
+
+void createMathFormVid(BinTreeNode* form){
+    const int image_width = 700;
+    const int image_frame_inc = 3;
+    char buffer[1000] = {};
+
+    FILE* form_file = fopen("form.txt", "w");
+    fprintf(form_file,
+"\\documentclass[10pt,a4paper]{article}\
+\\usepackage[OT1]{fontenc}\n\
+\\usepackage{amsmath}\n\
+\\usepackage{amsfonts}\n\
+\\usepackage{amssymb}\n\
+\\usepackage{graphicx}\n\
+\\usepackage{comment}\n\
+\\usepackage{xcolor}\n\
+\\pagecolor{black}\n\
+\n\
+\\begin{document}\n\
+ \\color{white}\n\
+ $"
+    );
+    printMathFormTex(form_file, form);
+    fprintf(form_file, "$\n \\end{document}");
+    fclose(form_file);
+
+    system("pdflatex form.txt -quiet");
+    const int max_i = image_width/image_frame_inc;
+    for(int i = 0; i < max_i; i++){
+        printf("\r");
+        printf("Creating video frames (%d/%d):", i+1 , max_i);
+        createNormalProgressBar(stdout, 20, 20*i/max_i);
+        sprintf(buffer, "magick form.pdf -quiet  -crop %dx50+130+103 img/form.png",1 + i*image_frame_inc);
+        system(buffer);
+        sprintf(buffer, "magick img_backg.png img/form.png -gravity West -geometry +50+0 -compose blend -composite img/img_out%d.png" , i);
+        system(buffer);
+
+    }
+    printf("\nProcessing video...");
+
+    sprintf(buffer, "ffmpeg -framerate 10 -i \"img/img_out%%d.png\" -vframes %d -vcodec libx264 -crf 25  -pix_fmt yuv420p out_vid.mp4 -y", image_width/image_frame_inc);
+    system(buffer);
+
+}
+
 
 BinTreeNode* replaceMathFormVar(BinTreeNode* form, const char* var, double val){
     if(!form){
@@ -329,8 +251,9 @@ static BinTreeNode* diffPow_(BinTreeNode* form, const char* var){
                                         form->right
                                     )
                             );
+    tmp_node->usedc++;
     BinTreeNode* ret = diffMathForm_(tmp_node, var);
-    binTreeNodeDtor(tmp_node);
+    binTreeDtor(tmp_node);
     return ret;
 }
 
@@ -340,10 +263,15 @@ static BinTreeNode* diffMathForm_(BinTreeNode* form, const char* var) {
         return newConstNode(0);
     }
     if (form->data.type == MATH_VAR){
-        if (strcmp(form->data.name, var) == 0)
-            return newConstNode(1);
-        else
-            return newConstNode(0);
+        if (*var != '\0'){
+            if (strcmp(form->data.name, var) == 0)
+                return newConstNode(1);
+            else
+                return newConstNode(0);
+        }
+        else{
+            return newOpNode(MATH_O_d, nullptr, form);
+        }
     }
     if (form->data.type == MATH_OP){
 
@@ -487,6 +415,9 @@ static BinTreeNode* diffMathForm_(BinTreeNode* form, const char* var) {
 }
 
 BinTreeNode* diffMathForm(BinTreeNode* form, const char* var) {
+    assert_log(var);
+    assert_log(form);
+
     BinTreeNode* ret = diffMathForm_(form, var);
     if (!ret){
         return nullptr;
@@ -546,16 +477,16 @@ static BinTreeNode* simplifyMathForm_(BinTreeNode* form){
         double l = form->left ->data.val;
         double r = form->right->data.val;
         double ans = calcMathOp(form->data.op, l, r);
-        if(!std::isfinite(ans)){
-            printf_log("L: %lf R: %lf OP: %s \n", l, r, mathOpName(form->data.op));
+        if(!(ans == ans)){
+            return form;
         }
         return newConstNode(ans);
     }
     if (!form->left && form->right->data.type == MATH_CONST){
         double r = form->right->data.val;
         double ans = calcMathOp(form->data.op, NAN, r);
-        if(!std::isfinite(ans)){
-            printf_log("R: %lf OP: %s \n", r, mathOpName(form->data.op));
+        if(!(ans == ans)){
+            return form;
         }
         return newConstNode(ans);
     }

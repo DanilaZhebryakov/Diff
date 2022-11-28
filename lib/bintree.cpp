@@ -106,7 +106,7 @@ void binTreeDtor(BinTreeNode* node){
     node->usedc--;
     if (node->usedc <= 0){
         if (node->left){
-            binTreeDtor(node->left);
+             binTreeDtor(node->left);
         }
         if (node->right){
             binTreeDtor(node->right);

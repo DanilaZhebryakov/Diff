@@ -61,6 +61,11 @@
 		<Unit filename="main.cpp" />
 		<Unit filename="math_elem.cpp" />
 		<Unit filename="math_elem.h" />
+		<Unit filename="math_op.cpp" />
+		<Unit filename="math_op.h" />
+		<Unit filename="math_op_defines.h" />
+		<Unit filename="syntax_analyser.cpp" />
+		<Unit filename="syntax_analyser.h" />
 		<Extensions>
 			<lib_finder disable_auto="1" />
 		</Extensions>

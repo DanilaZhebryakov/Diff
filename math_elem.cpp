@@ -5,122 +5,6 @@
 #include "lib/bintree.h"
 
 
-struct MathOp{
-    const char* name;
-    mathOpType_t op;
-    int priorirty;
-};
-
-static const MathOp oplist[] = {
-    {"+"    , MATH_O_ADD  , 0},
-    {"-"    , MATH_O_SUB  , 0},
-    {"-"    , MATH_O_UMIN  , 0},
-    {"*"    , MATH_O_MUL  , 1},
-    {"/"    , MATH_O_DIV  , 1},
-    {"^"    , MATH_O_POW  , 3},
-    {"log"  , MATH_O_LOG  , 2},
-    {"exp"  , MATH_O_EXP  , 2},
-    {"ln"   , MATH_O_LN   , 2},
-    {"sin"  , MATH_O_SIN  , 2},
-    {"cos"  , MATH_O_COS  , 2},
-    {"tg"   , MATH_O_TG   , 2},
-    {"asin" , MATH_O_ASIN , 2},
-    {"acos" , MATH_O_ACOS , 2},
-    {"atg"  , MATH_O_ATG  , 2},
-    {"sh"   , MATH_O_SH   , 2},
-    {"ch"   , MATH_O_CH   , 2},
-    {"th"   , MATH_O_TH   , 2},
-    {"sqrt" , MATH_O_SQRT , 2},
-    {"o"    , MATH_O_o    , 2},
-};
-
-bool isMathOpUnary(mathOpType_t op){
-    return op & MATH_O_UNARY;
-}
-
-static const int opcount = sizeof(oplist) / sizeof(MathOp);
-
-bool canMathOpBeUnary(mathOpType_t op){
-    for (int i = 0; i < opcount; i++){
-        if (oplist[i].op == (op | MATH_O_UNARY)){
-            return true;
-        }
-    }
-    return false;
-}
-
-int getMathOpPriority(mathOpType_t op_type){
-    for (int i = 0; i < opcount; i++){
-        if (oplist[i].op == op_type){
-            return oplist[i].priorirty;
-        }
-    }
-    return -1;
-}
-
-const char* mathOpName(mathOpType_t op_type){
-    for (int i = 0; i < opcount; i++){
-        if (oplist[i].op == op_type){
-            return oplist[i].name;
-        }
-    }
-    return "BADOP";
-}
-
-double calcMathOp(mathOpType_t op_type, double a, double b){
-    switch (op_type){
-    case MATH_O_ADD:
-        return a + b;
-    case MATH_O_SUB:
-        return a - b;
-    case MATH_O_MUL:
-        return a * b;
-    case MATH_O_DIV:
-        return a / b;
-    case MATH_O_POW:
-        return pow(a,b);
-    case MATH_O_LOG:
-        return log(b) / log(a);
-    case MATH_O_EXP:
-        return exp(b);
-    case MATH_O_LN:
-        return log(b);
-    case MATH_O_SIN:
-        return sin(b);
-    case MATH_O_COS:
-        return cos(b);
-    case MATH_O_TG:
-        return tan(b);
-    case MATH_O_ASIN:
-        return asin(b);
-    case MATH_O_ACOS:
-        return acos(b);
-    case MATH_O_ATG:
-        return atan(b);
-    case MATH_O_SH:
-        return sinh(b);
-    case MATH_O_CH:
-        return cosh(b);
-    case MATH_O_TH:
-        return tanh(b);
-    case MATH_O_SQRT:
-        return sqrt(b);
-    case MATH_O_o:
-        return 0;
-    default:
-        error_log("BADOP\n");
-        return NAN;
-    }
-}
-
-mathOpType_t scanMathOp(const char* buffer){
-    for (int i = 0; i < opcount; i++){
-        if (strcmp(oplist[i].name, buffer) == 0){
-            return oplist[i].op;
-        }
-    }
-    return MATH_O_NOTOP;
-}
 
 MathElem scanMathElem (FILE* file, char c, char* buffer){
     MathElem ret = {};
@@ -131,8 +15,14 @@ MathElem scanMathElem (FILE* file, char c, char* buffer){
         fscanf(file, "%lg", &(ret.val));
         return ret;
     }
-    fscanf(file, "%[^ ()0-9]", buffer);
-    if(*buffer == '\0'){
+
+    bool op_char = strchr(OP_ONLY_CHARS, c) != nullptr;
+    if (op_char)
+        fscanf(file, "%[" OP_ONLY_CHARS "]", buffer);
+    else
+        fscanf(file, "%[^" OP_ONLY_CHARS CNTRL_CHARS " ]", buffer);
+
+    if (*buffer == '\0'){
         ret.type = MATH_PAIN;
         return ret;
     }
@@ -141,6 +31,10 @@ MathElem scanMathElem (FILE* file, char c, char* buffer){
     if (op_type != MATH_O_NOTOP){
         ret.type = MATH_OP;
         ret.op   = op_type;
+        return ret;
+    }
+    if (op_char){
+        ret.type = MATH_PAIN;
         return ret;
     }
 
@@ -162,6 +56,12 @@ void printMathElem(FILE* file, MathElem elem){
         break;
     case MATH_VAR:
         fprintf(file, "%s", elem.name);
+        break;
+    case MATH_FUNC:
+        fprintf(file, "%s", elem.name);
+        break;
+    case MATH_CNTRL:
+        fprintf(file, "$%c", elem.chr);
         break;
     default:
         fprintf(file, "TRASH");
