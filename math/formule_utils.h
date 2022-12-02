@@ -8,6 +8,8 @@ void printMathForm(FILE* file, BinTreeNode* form, int priority = 0);
 
 void printMathFormTex(FILE* file, BinTreeNode* form);
 
+BinTreeNode* requestAllVars(BinTreeNode* form);
+
 void createMathFormVid(BinTreeNode* form);
 
 BinTreeNode* replaceMathFormVar(BinTreeNode* form, const char* var, double val);

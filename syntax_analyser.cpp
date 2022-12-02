@@ -1,5 +1,5 @@
-#include "math_elem.h"
-#include "formule_utils.h"
+#include "lib/math_elem.h"
+#include "lib/formule_utils.h"
 #include <ctype.h>
 
 static char getNextMeaningChar(FILE* file){

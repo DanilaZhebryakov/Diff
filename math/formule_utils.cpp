@@ -4,6 +4,7 @@
 
 #include "math_elem.h"
 #include "lib/bintree.h"
+#include "var_table.h"
 
 static BinTreeNode* newBadNode(){
     MathElem elem = {};
@@ -136,6 +137,56 @@ void printMathFormTex(FILE* file, BinTreeNode* form){
     }
 }
 
+static BinTreeNode* requestAllVars_(BinTreeNode* form, VarTable* vars){
+    if (form->data.type == MATH_VAR){
+        VarEntry* var = varTableGet(vars, form->data.name);
+        if(!var){
+            printf("Please enter value for %s\n", form->data.name);
+            double val = NAN;
+            scanf("%lf", &val);
+            varTablePut(vars, {val, form->data.name, 0});
+            var = varTableGetLast(vars);
+        }
+        return newConstNode(var->value);
+    }
+    if (form->data.type == MATH_OP && form->data.op == MATH_O_d){
+        if(form->right && form->right->data.type == MATH_VAR){
+            if(form->left == nullptr){
+                char* str_d = (char*)calloc(strlen(form->right->data.name)+4, sizeof(char));
+                strcpy(str_d, "d(");
+                strcat(str_d, form->right->data.name);
+                strcat(str_d, ")");
+                BinTreeNode* d_var = newVarNode(str_d);
+                binTreeAttach(d_var, form, BTREE_POS_LEFT);
+            }
+            return requestAllVars_(form->left, vars);
+        }
+        return newBadNode();
+    }
+    if (form->data.type == MATH_OP){
+        BinTreeNode* ret = binTreeNewNode(form->data);
+        if (!isMathOpUnary(form->data.op)){
+            binTreeAttach(requestAllVars_(form->left, vars), ret, BTREE_POS_LEFT);
+        }
+        binTreeAttach(requestAllVars_(form->right, vars), ret, BTREE_POS_RIGHT);
+        binTreeUpdSize(ret);
+        return ret;
+    }
+
+    return form;
+}
+
+BinTreeNode* requestAllVars(BinTreeNode* form){
+    UStack vars = {};
+    ustackCtor(&vars, sizeof(VarEntry));
+    BinTreeNode* ret = requestAllVars_(form, &vars);
+    if(ret)
+        ret->usedc++;
+    ustackDtor(&vars);
+    return ret;
+}
+
+
 void createMathFormVid(BinTreeNode* form){
     const int image_width = 700;
     const int image_frame_inc = 3;
@@ -202,6 +253,18 @@ BinTreeNode* replaceMathFormVar(BinTreeNode* form, const char* var, double val){
 }
 
 //diff block
+#define N_ADD(_a, _b) \
+    newOpNode(MATH_O_ADD, _a, _b)
+#define N_SUB(_a, _b) \
+    newOpNode(MATH_O_SUB, _a, _b)
+#define N_MUL(_a, _b) \
+    newOpNode(MATH_O_MUL, _a, _b)
+#define N_DIV(_a, _b) \
+    newOpNode(MATH_O_DIV, _a, _b)
+#define N_POW(_a, _b) \
+    newOpNode(MATH_O_POW, _a, _b)
+#define N_LN(_a) \
+    newOpNode(MATH_O_LN, nullptr, _a)
 
 static BinTreeNode* diffMathForm_(BinTreeNode* form, const char* var);
 
@@ -210,10 +273,7 @@ static BinTreeNode* diffLog_(BinTreeNode* form, const char* var){
     assert_log(form->left  != nullptr);
     assert_log(form->right != nullptr);
 
-    BinTreeNode* tmp_node = newOpNode(MATH_O_DIV,
-                                        newOpNode(MATH_O_LN, nullptr, form->left ),
-                                        newOpNode(MATH_O_LN, nullptr, form->right)
-                                    );
+    BinTreeNode* tmp_node = N_DIV(N_LN(form->left), N_LN(form->right));
     BinTreeNode* ret = diffMathForm_(tmp_node, var);
     binTreeNodeDtor(tmp_node);
     return ret;
@@ -225,32 +285,20 @@ static BinTreeNode* diffPow_(BinTreeNode* form, const char* var){
     assert_log(form->right != nullptr);
 
     if (form->left->data.type == MATH_CONST){
-        return newOpNode(MATH_O_MUL,
-                        newOpNode(MATH_O_LN, nullptr, form->left),
-                        newOpNode(MATH_O_MUL,
-                             form,
-                             diffMathForm_(form->right, var))
-                    );
+        return N_MUL(N_LN(form->left), N_MUL(form, diffMathForm_(form->right, var)));
     }
     if (form->right->data.type == MATH_CONST){
-        return newOpNode(MATH_O_MUL,
-                    newOpNode(MATH_O_MUL,
-                        form->right,
-                        newOpNode(MATH_O_POW,
-                            form->left,
-                            newConstNode(form->right->data.val-1)
-                        )
-                    ),
+        return N_MUL(
+                    N_MUL(form->right, N_POW(form->left, newConstNode(form->right->data.val-1))),
                     diffMathForm_(form->left, var)
-                );
+                    );
     }
 
     BinTreeNode* tmp_node = newOpNode(MATH_O_EXP, nullptr,
-                                    newOpNode(MATH_O_MUL,
-                                        newOpNode(MATH_O_LN, nullptr, form->left),
-                                        form->right
-                                    )
-                            );
+                                    N_MUL(
+                                          N_LN(form->left),
+                                          form->right)
+                                    );
     tmp_node->usedc++;
     BinTreeNode* ret = diffMathForm_(tmp_node, var);
     binTreeDtor(tmp_node);
@@ -273,133 +321,109 @@ static BinTreeNode* diffMathForm_(BinTreeNode* form, const char* var) {
             return newOpNode(MATH_O_d, nullptr, form);
         }
     }
+    #define N_DIFF(_a) \
+        diffMathForm_(_a , var)
+
     if (form->data.type == MATH_OP){
 
         switch(form->data.op){
         case MATH_O_ADD:
-            return newOpNode(MATH_O_ADD,
-                             diffMathForm_(form->left , var),
-                             diffMathForm_(form->right, var));
+            return N_ADD(    N_DIFF(form->left),
+                             N_DIFF(form->right));
         case MATH_O_SUB:
-            return newOpNode(MATH_O_SUB,
-                             diffMathForm_(form->left , var),
-                             diffMathForm_(form->right, var));
+            return N_SUB(    N_DIFF(form->left ),
+                             N_DIFF(form->right));
         case MATH_O_MUL:
-            return newOpNode(MATH_O_ADD,
-                             newOpNode(MATH_O_MUL,
-                                        diffMathForm_(form->left, var),
-                                        form->right),
-                             newOpNode(MATH_O_MUL,
-                                        form->left,
-                                        diffMathForm_(form->right, var))
+            return N_ADD(
+                             N_MUL( N_DIFF(form->left),
+                                    form->right),
+                             N_MUL( form->left,
+                                    N_DIFF(form->right))
                              );
         case MATH_O_DIV:
-            return newOpNode(MATH_O_DIV,
-                        newOpNode(MATH_O_SUB,
-                             newOpNode(MATH_O_MUL,
-                                        diffMathForm_(form->left, var),
-                                        form->right),
-                             newOpNode(MATH_O_MUL,
-                                        form->left,
-                                        diffMathForm_(form->right, var))
+            return N_DIV(
+                         N_SUB(
+                             N_MUL( diffMathForm_(form->left, var),
+                                    form->right),
+                             N_MUL( form->left,
+                                    diffMathForm_(form->right, var))
                              ),
-                        newOpNode(MATH_O_MUL, form->right, form->right));
+                         N_MUL(form->right, form->right));
         case MATH_O_EXP:
-            return newOpNode(MATH_O_MUL,
-                             form,
-                             diffMathForm_(form->right, var)
-                             );
+            return N_MUL( form, DIFF(form->right));
         case MATH_O_LN:
-            return newOpNode(MATH_O_MUL,
-                             newOpNode(MATH_O_DIV, newConstNode(1), form->right),
-                             diffMathForm_(form->right, var)
-                             );
+            return N_MUL( N_DIV( newConstNode(1), form->right),
+                          N_DIFF(form->right));
         case MATH_O_SIN:
-            return newOpNode(MATH_O_MUL,
-                             newOpNode(MATH_O_COS, nullptr, form->right),
-                             diffMathForm_(form->right, var)
-                             );
+            return N_MUL( newOpNode(MATH_O_COS, nullptr, form->right),
+                          N_DIFF(form->right));
         case MATH_O_COS:
-            return newOpNode(MATH_O_MUL,
-                             newOpNode(MATH_O_MUL,
-                                newOpNode(MATH_O_SIN, nullptr, form->right),
-                                newConstNode(-1)),
-                             diffMathForm_(form->right, var)
-                             );
+            return N_MUL( newOpNode(MATH_O_UMIN, nullptr,
+                                newOpNode(MATH_O_SIN, nullptr, form->right)),
+                          N_DIFF(form->right)
+                        );
         case MATH_O_TG:
-            return newOpNode(MATH_O_MUL,
-                             newOpNode(MATH_O_DIV,
+            return  N_MUL( N_DIV(
                                 newConstNode(1),
-                                newOpNode(MATH_O_POW,
+                                N_POW(
                                     newOpNode(MATH_O_COS, nullptr, form->right),
                                     newConstNode(2)
                                 )
                              ),
-                             diffMathForm_(form->right, var)
-                             );
+                           N_DIFF(form->right)
+                          );
         case MATH_O_SH:
-            return newOpNode(MATH_O_MUL,
-                             newOpNode(MATH_O_CH, nullptr, form->right),
-                             diffMathForm_(form->right, var)
-                             );
+            return N_MUL( newOpNode(MATH_O_CH, nullptr, form->right),
+                          N_DIFF(form->right)
+                        );
         case MATH_O_CH:
-            return newOpNode(MATH_O_MUL,
-                             newOpNode(MATH_O_SH, nullptr, form->right),
-                             diffMathForm_(form->right, var)
-                             );
+            return N_MUL( newOpNode(MATH_O_SH, nullptr, form->right),
+                          N_DIFF(form->right)
+                          );
         case MATH_O_TH:
-            return newOpNode(MATH_O_MUL,
-                             newOpNode(MATH_O_DIV,
+            return N_MUL( N_DIV(
                                 newConstNode(1),
-                                newOpNode(MATH_O_POW,
+                                N_POW(
                                     newOpNode(MATH_O_CH, nullptr, form->right),
                                     newConstNode(2)
                                 )
                              ),
-                             diffMathForm_(form->right, var)
-                             );
+                             N_DIFF(form->right, var)
+                        );
         case MATH_O_ASIN:
-            return newOpNode(MATH_O_MUL,
-                             newOpNode(MATH_O_DIV,
-                                newConstNode(1),
+            return N_MUL( N_DIV(newConstNode(1),
                                 newOpNode(MATH_O_SQRT, nullptr,
-                                    newOpNode(MATH_O_SUB,
+                                    N_SUB(
                                         newConstNode(1),
-                                        newOpNode(MATH_O_POW, form->right, newConstNode(2))
+                                        N_POW(form->right, newConstNode(2))
                                     )
                                 )
                              ),
-                             diffMathForm_(form->right, var)
-                             );
+                             N_DIFF(form->right)
+                            );
         case MATH_O_ACOS:
-            return newOpNode(MATH_O_MUL,
-                             newOpNode(MATH_O_DIV,
+            return N_MUL( N_DIV(
                                 newConstNode(-1),
                                 newOpNode(MATH_O_SQRT, nullptr,
-                                    newOpNode(MATH_O_SUB,
-                                        newConstNode(1),
-                                        newOpNode(MATH_O_POW, form->right, newConstNode(2))
+                                    N_SUB( newConstNode(1),
+                                           N_POW( form->right, newConstNode(2))
                                     )
                                 )
                              ),
-                             diffMathForm_(form->right, var)
-                             );
+                             N_DIFF(form->right)
+                        );
         case MATH_O_ATG:
-            return newOpNode(MATH_O_MUL,
-                             newOpNode(MATH_O_DIV,
-                                newConstNode(1),
-                                newOpNode(MATH_O_ADD,
+            return N_MUL( N_DIV(newConstNode(1),
+                                N_ADD(
                                     newConstNode(1),
-                                    newOpNode(MATH_O_POW, form->right, newConstNode(2))
+                                    N_POW( form->right, newConstNode(2))
                                 )
                              ),
-                             diffMathForm_(form->right, var)
-                             );
+                          N_DIFF(form->right)
+                        );
         case MATH_O_SQRT:
-            return newOpNode(MATH_O_MUL,
-                             newOpNode(MATH_O_DIV, newConstNode(0.5), form),
-                             diffMathForm_(form->right, var)
-                             );
+            return N_MUL( N_DIV ( newConstNode(0.5), form),
+                          N_DIFF(form->right) );
         case MATH_O_POW:
             return diffPow_(form, var);
         case MATH_O_LOG:
@@ -409,6 +433,7 @@ static BinTreeNode* diffMathForm_(BinTreeNode* form, const char* var) {
         default:
             return newBadNode();
         }
+        #undef DIFF
 
     }
     return newBadNode();
@@ -527,18 +552,20 @@ static BinTreeNode* simplifyMathForm_(BinTreeNode* form){
                 return form->left;
             case MATH_O_POW:
                 return form->left;
+            case MATH_O_LOG:
+                return newConstNode(0);
             default:
                 break;
         }
     }
-    if (mathElemEquals(form->left, 0)){
+    if (mathElemEquals(form->left, 1)){
         switch(form->data.op){
             case MATH_O_MUL:
                 return form->right;
             case MATH_O_POW:
                 return newConstNode(1);
             case MATH_O_LOG:
-                return newConstNode(0);
+                return newConstNode(NAN);
             default:
                 break;
         }
@@ -559,13 +586,12 @@ BinTreeNode* taylorMathForm(BinTreeNode* form, const char* var, double point, in
     simplifyMathForm(&d_n);
     d_n->usedc--;
     BinTreeNode* var_node = newVarNode(var);
-    BinTreeNode* x_sub_point = newOpNode(MATH_O_SUB, var_node, newConstNode(point));
+    BinTreeNode* x_sub_point = N_SUB( var_node, newConstNode(point));
     BinTreeNode* res = replaceMathFormVar(form, var, point);
 
     for (int i = 1; i <= o_st; i++){
-        BinTreeNode* s_mem = newOpNode(MATH_O_MUL,
-                                    newOpNode(MATH_O_DIV,
-                                        newOpNode(MATH_O_POW,
+        BinTreeNode* s_mem = N_MUL(N_DIV(
+                                        N_POW(
                                             x_sub_point,
                                             newConstNode(i)
                                         ),
@@ -573,14 +599,14 @@ BinTreeNode* taylorMathForm(BinTreeNode* form, const char* var, double point, in
                                     ),
                                     replaceMathFormVar(d_n, var, point)
                                 );
-        res = newOpNode(MATH_O_ADD, res, s_mem);
+        res = N_ADD(res, s_mem);
         d_n = diffMathForm(d_n, var);
         simplifyMathForm(&d_n);
         d_n->usedc--;
     }
-    res =   newOpNode(MATH_O_ADD, res,
+    res =   N_ADD( res,
                 newOpNode(MATH_O_o, nullptr,
-                    newOpNode(MATH_O_POW,
+                    N_POW(
                         x_sub_point,
                         newConstNode(o_st)
                     )

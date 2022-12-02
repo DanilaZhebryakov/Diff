@@ -33,8 +33,6 @@
 			<Add option="-fexceptions" />
 			<Add directory="C:/Users/Danila/Desktop/diff/" />
 		</Compiler>
-		<Unit filename="formule_utils.cpp" />
-		<Unit filename="formule_utils.h" />
 		<Unit filename="lib/Console_utils.h" />
 		<Unit filename="lib/Console_utils_win.cpp" />
 		<Unit filename="lib/Stack.cpp" />
@@ -59,13 +57,17 @@
 		<Unit filename="lib/time_utils.cpp" />
 		<Unit filename="lib/time_utils.h" />
 		<Unit filename="main.cpp" />
-		<Unit filename="math_elem.cpp" />
-		<Unit filename="math_elem.h" />
-		<Unit filename="math_op.cpp" />
-		<Unit filename="math_op.h" />
-		<Unit filename="math_op_defines.h" />
+		<Unit filename="math/formule_utils.cpp" />
+		<Unit filename="math/formule_utils.h" />
+		<Unit filename="math/math_elem.cpp" />
+		<Unit filename="math/math_elem.h" />
+		<Unit filename="math/math_op.cpp" />
+		<Unit filename="math/math_op.h" />
+		<Unit filename="math/math_op_defines.h" />
 		<Unit filename="syntax_analyser.cpp" />
 		<Unit filename="syntax_analyser.h" />
+		<Unit filename="var_table.cpp" />
+		<Unit filename="var_table.h" />
 		<Extensions>
 			<lib_finder disable_auto="1" />
 		</Extensions>
