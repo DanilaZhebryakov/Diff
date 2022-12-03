@@ -14,6 +14,7 @@ enum mathDataType_t{
 
 #define OP_ONLY_CHARS "-+%*/\\^&|%!?~,"
 #define CNTRL_CHARS "(){};"
+#define SPACE_CHARS " \n\t\r"
 
 const double math_eps = 0.0001;
 

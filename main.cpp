@@ -1,7 +1,7 @@
 #include <iostream>
 #include "lib/UStack.h"
 
-#include "formule_utils.h"
+#include "math/formule_utils.h"
 #include "syntax_analyser.h"
 #include "lib/bintree.h"
 
@@ -50,7 +50,10 @@ int main()
         tree->usedc++;
         break;
     }
+    printf_log("res\n");
+    binTreeDump(res);
     simplifyMathForm(&res);
+    printf_log("simpl\n");
     binTreeDump(res);
 
     if(strchr(inp_str, '#')){

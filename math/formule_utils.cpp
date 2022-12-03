@@ -333,6 +333,8 @@ static BinTreeNode* diffMathForm_(BinTreeNode* form, const char* var) {
         case MATH_O_SUB:
             return N_SUB(    N_DIFF(form->left ),
                              N_DIFF(form->right));
+        case MATH_O_UMIN:
+            return newOpNode(MATH_O_UMIN, nullptr, N_DIFF(form->right));
         case MATH_O_MUL:
             return N_ADD(
                              N_MUL( N_DIFF(form->left),
@@ -350,7 +352,7 @@ static BinTreeNode* diffMathForm_(BinTreeNode* form, const char* var) {
                              ),
                          N_MUL(form->right, form->right));
         case MATH_O_EXP:
-            return N_MUL( form, DIFF(form->right));
+            return N_MUL( form, N_DIFF(form->right));
         case MATH_O_LN:
             return N_MUL( N_DIV( newConstNode(1), form->right),
                           N_DIFF(form->right));
@@ -388,7 +390,7 @@ static BinTreeNode* diffMathForm_(BinTreeNode* form, const char* var) {
                                     newConstNode(2)
                                 )
                              ),
-                             N_DIFF(form->right, var)
+                             N_DIFF(form->right)
                         );
         case MATH_O_ASIN:
             return N_MUL( N_DIV(newConstNode(1),
@@ -488,15 +490,23 @@ static BinTreeNode* simplifyMathForm_(BinTreeNode* form){
     if (form->data.type != MATH_OP)
         return form;
 
-    simplifyMathForm(&(form->right));
-    if (!isMathOpUnary(form->data.op)){
+    if (form->right)
+        simplifyMathForm(&(form->right));
+    if (form->left){
         simplifyMathForm(&(form->left));
     }
-    if (!form->right)
+    if (!form->right){
+        printf("BNR ");
+        printMathForm(stdout, form, 0);
+        printf("\n");
         return newBadNode();
-    if (!(form->left || isMathOpUnary(form->data.op)))
+    }
+    if (!(form->left || isMathOpUnary(form->data.op))){
+        printf("BNL ");
+        printMathForm(stdout, form, 0);
+        printf("\n");
         return newBadNode();
-
+    }
 
     if (form->left && form->right->data.type == MATH_CONST && form->left->data.type == MATH_CONST){
         double l = form->left ->data.val;

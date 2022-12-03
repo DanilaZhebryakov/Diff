@@ -1,5 +1,5 @@
-#include "lib/math_elem.h"
-#include "lib/formule_utils.h"
+#include "math/math_elem.h"
+#include "math/formule_utils.h"
 #include <ctype.h>
 
 static char getNextMeaningChar(FILE* file){
@@ -25,9 +25,10 @@ static void refillElemBuffer_(FILE* file, char* buffer, MathElem* elem_buffer){
 
 static bool scanMathExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, int priority);
 
-static bool scanMathPExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, bool short_scan = false){
-    if (elem_buffer->type != MATH_CNTRL){
-        if (elem_buffer->type == MATH_OP){
+static bool scanMathPExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, bool short_scan = false);
+
+static bool scanMathBExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, bool short_scan){
+    if (elem_buffer->type == MATH_OP){
             if (!canMathOpBeUnary(elem_buffer->op)){
                 error_log("Binary operator %s used as unary\n", mathOpName(elem_buffer->op));
                 return false;
@@ -50,20 +51,24 @@ static bool scanMathPExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, M
             binTreeUpdSize(*tree_place);
             return true;
 
-        }
-        *tree_place = binTreeNewNode(*elem_buffer);
-        if (!short_scan)
-            refillElemBuffer_(file, buffer, elem_buffer);
+    }
+    *tree_place = binTreeNewNode(*elem_buffer);
+    if (!short_scan)
+        refillElemBuffer_(file, buffer, elem_buffer);
 
-        if ((*tree_place)->data.type == MATH_VAR && (elem_buffer->type == MATH_CNTRL && elem_buffer->chr == '(') && !short_scan){
-            (*tree_place)->data.type = MATH_FUNC;
-            if (!scanMathPExpr_(file, &((*tree_place)->right), buffer, elem_buffer))
-                return false;
-            binTreeUpdSize(*tree_place);
-        }
+    if ((*tree_place)->data.type == MATH_VAR && (elem_buffer->type == MATH_CNTRL && elem_buffer->chr == '(') && !short_scan){
+        (*tree_place)->data.type = MATH_FUNC;
+        if (!scanMathPExpr_(file, &((*tree_place)->right), buffer, elem_buffer))
+            return false;
+        binTreeUpdSize(*tree_place);
+    }
 
+    return true;
+}
 
-        return true;
+static bool scanMathPExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, MathElem* elem_buffer, bool short_scan){
+    if (elem_buffer->type != MATH_CNTRL){
+        return scanMathBExpr_(file, tree_place, buffer, elem_buffer, short_scan);
     }
 
     char c = elem_buffer->chr;
@@ -111,8 +116,6 @@ static bool scanMathExpr_(FILE* file, BinTreeNode** tree_place, char* buffer, Ma
         }
         if (getMathOpPriority(elem_buffer->op) < priority)
             return true;
-
-
 
         BinTreeNode* old_node = *tree_place;
         BinTreeNode* new_node = binTreeNewNode(*elem_buffer);

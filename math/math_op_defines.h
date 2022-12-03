@@ -27,5 +27,5 @@ MATH_OP_DEF(MATH_O_CH   ,17 | 0x80, "cosh", 3, cosh(a)      )
 MATH_OP_DEF(MATH_O_TH   ,18 | 0x80, "tanh", 3, tanh(a)      )
 MATH_OP_DEF(MATH_O_SQRT ,19 | 0x80, "sqrt", 3, sqrt(a)      )
 MATH_OP_DEF(MATH_O_o    ,20 | 0x80, "o"   , 3, 0            )
-MATH_OP_DEF(MATH_O_d    ,21 | 0x80, "d"   , 3, NAN          )
+MATH_OP_DEF(MATH_O_d    ,21 | 0x80, "d"   , 3, 0            )
 

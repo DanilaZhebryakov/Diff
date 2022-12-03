@@ -20,7 +20,7 @@ MathElem scanMathElem (FILE* file, char c, char* buffer){
     if (op_char)
         fscanf(file, "%[" OP_ONLY_CHARS "]", buffer);
     else
-        fscanf(file, "%[^" OP_ONLY_CHARS CNTRL_CHARS " ]", buffer);
+        fscanf(file, "%[^" OP_ONLY_CHARS CNTRL_CHARS SPACE_CHARS"]", buffer);
 
     if (*buffer == '\0'){
         ret.type = MATH_PAIN;
